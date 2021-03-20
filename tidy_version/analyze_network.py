@@ -1,5 +1,6 @@
 import seaborn as sns
-
+from captum.attr import Occlusion
+from captum.attr import visualization as viz
 import torch
 from PIL import Image
 from sklearn.metrics import roc_auc_score
@@ -8,19 +9,25 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import transforms
 import numpy as np
 import matplotlib.pyplot as plt
-from Dataloader import TCGAImageLoader
-from Network_Softmax import ConvNetSoftmax
-transform = transforms.Compose([transforms.ToTensor(),
-                                transforms.Normalize([0.1,0.1,0.1], [0.1,0.1,0.1])])
-dataset = TCGAImageLoader("../data/DSS_labels.csv", "../data/", transform)
-trainLoader = DataLoader(dataset, batch_size=1, num_workers=10, shuffle=False)
-checkpoint = torch.load("checkpoints/ep_454_model.pt")
+
+from TCGA_GenomeImage.tidy_version.v2.Dataloader import TCGAImageLoader
+from TCGA_GenomeImage.tidy_version.v2.Network_Softmax import ConvNetSoftmax
+
+transform = transforms.Compose([transforms.ToTensor()])
+dataset = TCGAImageLoader("../data/v2/DSS_labels_with_extrastuff.csv", "../data/v2/", transform)
+trainLoader = DataLoader(dataset, batch_size=1, num_workers=10, shuffle=True)
+checkpoint = torch.load("v2/models/model_met_0.75.pt")
 LR = 0.0001
 net = ConvNetSoftmax()
-optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=1e-2, lr=LR, weight_decay=1e-3)
+print(len(trainLoader))
+
+occlusion = Occlusion(net)
+optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=0.01, lr=LR, weight_decay=0.001)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 net.eval()
+print(len(trainLoader))
+occlusion = Occlusion(net)
 
 def makeImages(x):
     img_cin_l = x[0, 0, :, :]*255.0
@@ -91,25 +98,53 @@ def plot_activations(A, dim1, dim2, number_rows=1, name=""):
                 ax.set_xticks([])
                 ax.set_yticks([])
 
-print(len(trainLoader))
-
+heatmaps_loss = []
+heatmaps_gains = []
+heatmaps_mut = []
 cnt = 1
-for x,y,type,id in trainLoader:
-    if y == 1 and type[0] == "PRAD":
-        print(type)
-        print(id)
-        print(y.item())
-        show_data(x,y)
-        #plot_channels(net.state_dict()['conv1.weight'])
-        #plot_channels(net.state_dict()['conv2.weight'])
-        # out = net.activations(x)
-        # plot_activations(out[0], number_rows=1, name="1st feature map", dim1=4, dim2=5)
-        # plt.savefig("/home/mateo/Desktop/PRAD_1/1_feature.png",dpi=100)
-        # plot_activations(out[1],  number_rows=1, name="1st activation map",dim1=4,dim2=5)
-        # plt.savefig("/home/mateo/Desktop/PRAD_1/1_activation.png",dpi=100)
-        # plot_activations(out[2], number_rows=1, name="2nd feature map", dim1=5, dim2=6)
-        # plt.savefig("/home/mateo/Desktop/PRAD_1/2_feature.png",dpi=100)
-        # plot_activations(out[3], number_rows=1, name="2nd activation map",dim1=5,dim2=6)
-        # plt.savefig("/home/mateo/Desktop/PRAD_1/2_activation.png",dpi=100)
-        break
-    cnt = cnt + 1
+for x, dss, type, id, met_1_2, met_1_2_3, GD in trainLoader:
+    if met_1_2_3 == 1 and type[0] == "BLCA":
+        print("Sample: ", type, id, met_1_2_3.item())
+        show_data(x,met_1_2_3)
+        for d in range(1,4):
+            print("\tDimension: ", d)
+            strides = (d, 1, 1)
+            target = 1,
+            sliding_window_shapes = (d, 1, 1)
+            baselines = 0  # values to occlude the image with. 0 corresponds to gray
+
+            attribution = occlusion.attribute(x,
+                                      strides=strides,
+                                      target=target,
+                                      sliding_window_shapes=sliding_window_shapes,
+                                      baselines=baselines)
+            attribution = np.transpose(attribution.squeeze().cpu().detach().numpy(), (1, 2, 0))
+            for_heatmap = attribution[:, :, 0]
+            if d == 1:
+                heatmaps_gains.append(for_heatmap)
+            if d == 2:
+                heatmaps_loss.append(for_heatmap)
+            if d == 3:
+                heatmaps_mut.append(for_heatmap)
+        # break
+        if cnt == 10:
+            break
+        cnt = cnt + 1
+print(len(heatmaps_loss))
+print(len(heatmaps_gains))
+print(len(heatmaps_mut))
+heatmaps_loss = np.array(heatmaps_loss)
+mean_loss_matrix = heatmaps_loss.mean(axis=0)
+ax = sns.heatmap(mean_loss_matrix)
+plt.show()
+heatmaps_gains = np.array(heatmaps_gains)
+mean_gain_matrix = heatmaps_gains.mean(axis=0)
+ax = sns.heatmap(mean_gain_matrix)
+plt.show()
+heatmaps_mut = np.array(heatmaps_mut)
+mean_mut_matrix = heatmaps_mut.mean(axis=0)
+ax = sns.heatmap(mean_mut_matrix)
+plt.show()
+np.savetxt('mut.csv', mean_mut_matrix, delimiter=',')
+np.savetxt('gain.csv', mean_gain_matrix, delimiter=',')
+np.savetxt('loss.csv', mean_loss_matrix, delimiter=',')

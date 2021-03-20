@@ -91,11 +91,11 @@ val_losses = []
 for ep in range(epochs):
     batch_train_auc, batch_train_loss, batch_val_auc, batch_val_loss = [], [], [], []
     for x, dss, type, id, met_1_2, met_1_2_3, GD in trainLoader:
-        loss, acc_train, auc = batch_train(x.cuda(), GD.cuda())
+        loss, acc_train, auc = batch_train(x.cuda(), met_1_2_3.cuda())
         batch_train_loss.append(loss)
         batch_train_auc.append(auc)
     for x, dss, type, id, met_1_2, met_1_2_3, GD in valLoader:
-        loss, acc_val, auc = batch_valid(x.cuda(), GD.cuda())
+        loss, acc_val, auc = batch_valid(x.cuda(), met_1_2_3.cuda())
         batch_val_loss.append(loss)
         batch_val_auc.append(auc)
 
