@@ -11,7 +11,7 @@ from TCGA_GenomeImage.tidy_version.v2.Dataloader import TCGAImageLoader
 from TCGA_GenomeImage.tidy_version.v2.Network_Softmax import ConvNetSoftmax
 
 LR = 0.0001
-batch_size = 100
+batch_size = 200
 lr_decay = 1e-2
 weight_decay = 1e-3
 
