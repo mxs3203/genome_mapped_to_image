@@ -1,5 +1,5 @@
 import seaborn as sns
-from captum.attr import Occlusion
+from captum.attr import Occlusion, IntegratedGradients
 from captum.attr import visualization as viz
 import torch
 from PIL import Image
@@ -27,7 +27,7 @@ net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 net.eval()
 print(len(trainLoader))
-occlusion = Occlusion(net)
+occlusion = IntegratedGradients(net)
 
 def makeImages(x):
     img_cin_l = x[0, 0, :, :]*255.0
@@ -103,33 +103,19 @@ heatmaps_gains = []
 heatmaps_mut = []
 cnt = 1
 for x, dss, type, id, met_1_2, met_1_2_3, GD in trainLoader:
-    if met_1_2_3 == 1 and type[0] == "BLCA":
-        print("Sample: ", type, id, met_1_2_3.item())
-        show_data(x,met_1_2_3)
-        for d in range(1,4):
-            print("\tDimension: ", d)
-            strides = (d, 1, 1)
-            target = 1,
-            sliding_window_shapes = (d, 1, 1)
-            baselines = 0  # values to occlude the image with. 0 corresponds to gray
+    for d in range(1,4):
+        print("\tID: ", id)
+        baseline = torch.zeros((1,3, 193, 192))
+        attribution = occlusion.attribute(x, baseline, target=1)
+        attribution = np.transpose(attribution.squeeze().cpu().detach().numpy(), (1, 2, 0))
+        for_heatmap = attribution[:, :, d-1]
+        if d == 1:
+            heatmaps_gains.append(for_heatmap)
+        if d == 2:
+            heatmaps_loss.append(for_heatmap)
+        if d == 3:
+            heatmaps_mut.append(for_heatmap)
 
-            attribution = occlusion.attribute(x,
-                                      strides=strides,
-                                      target=target,
-                                      sliding_window_shapes=sliding_window_shapes,
-                                      baselines=baselines)
-            attribution = np.transpose(attribution.squeeze().cpu().detach().numpy(), (1, 2, 0))
-            for_heatmap = attribution[:, :, 0]
-            if d == 1:
-                heatmaps_gains.append(for_heatmap)
-            if d == 2:
-                heatmaps_loss.append(for_heatmap)
-            if d == 3:
-                heatmaps_mut.append(for_heatmap)
-        # break
-        if cnt == 10:
-            break
-        cnt = cnt + 1
 print(len(heatmaps_loss))
 print(len(heatmaps_gains))
 print(len(heatmaps_mut))

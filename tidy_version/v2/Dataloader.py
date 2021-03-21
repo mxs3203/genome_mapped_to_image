@@ -18,6 +18,9 @@ class TCGAImageLoader(Dataset):
         """
 
         self.annotation = pd.read_csv(csv_file, sep=";")
+        self.annotation = self.annotation[self.annotation['type'] == "BLCA" ]
+        self.annotation = self.annotation[self.annotation['metastatic_one_two_three'] == 1]
+
         self.root_dir = root_dir
         self.transform = transform
 
