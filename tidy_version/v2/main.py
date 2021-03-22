@@ -17,7 +17,7 @@ weight_decay = 1e-3
 
 writer = SummaryWriter(flush_secs=1)
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("../../data/v2/DSS_labels_with_extrastuff.csv", "../../data/v2/", transform)
+dataset = TCGAImageLoader("../../data/v2/DSS_labels_with_extrastuff.csv", "../../data/v2/", transform=transform)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 train_size = int(len(dataset) * 0.8)

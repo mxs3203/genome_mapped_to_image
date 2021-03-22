@@ -14,14 +14,16 @@ from TCGA_GenomeImage.tidy_version.v2.Dataloader import TCGAImageLoader
 from TCGA_GenomeImage.tidy_version.v2.Network_Softmax import ConvNetSoftmax
 
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("../data/v2/DSS_labels_with_extrastuff.csv", "../data/v2/", transform)
+dataset = TCGAImageLoader("../data/v2/DSS_labels_with_extrastuff.csv",
+                          "../data/v2/",
+                          filter_by_type="OV",
+                          transform=transform)
 trainLoader = DataLoader(dataset, batch_size=1, num_workers=10, shuffle=True)
-checkpoint = torch.load("v2/models/model_met_0.75.pt")
+checkpoint = torch.load("v2/models/model_met_0_74.pt")
 LR = 0.0001
 net = ConvNetSoftmax()
 print(len(trainLoader))
 
-occlusion = Occlusion(net)
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=0.01, lr=LR, weight_decay=0.001)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -105,10 +107,10 @@ cnt = 1
 for x, dss, type, id, met_1_2, met_1_2_3, GD in trainLoader:
     for d in range(1,4):
         print("\tID: ", id)
-        baseline = torch.zeros((1,3, 193, 192))
+        baseline = torch.zeros((1,3, 192, 193))
         attribution = occlusion.attribute(x, baseline, target=1)
-        attribution = np.transpose(attribution.squeeze().cpu().detach().numpy(), (1, 2, 0))
-        for_heatmap = attribution[:, :, d-1]
+        attribution = attribution.squeeze().cpu().detach().numpy()
+        for_heatmap = np.abs(attribution[d-1, :, :])
         if d == 1:
             heatmaps_gains.append(for_heatmap)
         if d == 2:

@@ -8,7 +8,7 @@ import torch
 
 class TCGAImageLoader(Dataset):
 
-    def __init__(self, csv_file, root_dir, transform=None):
+    def __init__(self, csv_file, root_dir,filter_by_type=None, transform=None):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -18,8 +18,9 @@ class TCGAImageLoader(Dataset):
         """
 
         self.annotation = pd.read_csv(csv_file, sep=";")
-        self.annotation = self.annotation[self.annotation['type'] == "BLCA" ]
-        self.annotation = self.annotation[self.annotation['metastatic_one_two_three'] == 1]
+        if filter_by_type is not None:
+            self.annotation = self.annotation[self.annotation['type'] == filter_by_type ]
+            self.annotation = self.annotation[self.annotation['metastatic_one_two_three'] == 1]
 
         self.root_dir = root_dir
         self.transform = transform
@@ -41,7 +42,6 @@ class TCGAImageLoader(Dataset):
         mut = pd.read_csv(mut_file, sep=",", dtype="float32",header=None, names = None)
         mut = np.asarray(mut, dtype="float32")
         image = np.dstack((cin_gain, cin_loss,  mut))
-        image = np.reshape(image, (193, 192, 3))
 
         dss = np.array(self.annotation.iloc[idx, 6], dtype="long")
         type = self.annotation.iloc[idx, 7]
