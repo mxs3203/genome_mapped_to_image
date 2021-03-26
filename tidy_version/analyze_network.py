@@ -1,11 +1,8 @@
 import seaborn as sns
-from captum.attr import Occlusion, IntegratedGradients
-from captum.attr import visualization as viz
+from captum.attr import IntegratedGradients
 import torch
 from PIL import Image
-from sklearn.metrics import roc_auc_score
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import transforms
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,12 +11,11 @@ from TCGA_GenomeImage.tidy_version.v2.Dataloader import TCGAImageLoader
 from TCGA_GenomeImage.tidy_version.v2.Network_Softmax import ConvNetSoftmax
 
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("../data/v2/DSS_labels_with_extrastuff.csv",
-                          "../data/v2/",
+dataset = TCGAImageLoader("../data/v3/DSS_labels.csv", "../data/v3/",
                           filter_by_type="OV",
                           transform=transform)
 trainLoader = DataLoader(dataset, batch_size=1, num_workers=10, shuffle=True)
-checkpoint = torch.load("v2/models/model_met_0_74.pt")
+checkpoint = torch.load("v2/models/tcga_met_model.pt")
 LR = 0.0001
 net = ConvNetSoftmax()
 print(len(trainLoader))
@@ -104,10 +100,10 @@ heatmaps_loss = []
 heatmaps_gains = []
 heatmaps_mut = []
 cnt = 1
-for x, dss, type, id, met_1_2, met_1_2_3, GD in trainLoader:
+for x, type, id, met_1_2_3 in trainLoader:
     for d in range(1,4):
         print("\tID: ", id)
-        baseline = torch.zeros((1,3, 192, 193))
+        baseline = torch.zeros((1,3, 193, 193))
         attribution = occlusion.attribute(x, baseline, target=1)
         attribution = attribution.squeeze().cpu().detach().numpy()
         for_heatmap = np.abs(attribution[d-1, :, :])

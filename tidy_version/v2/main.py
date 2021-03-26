@@ -11,16 +11,16 @@ from TCGA_GenomeImage.tidy_version.v2.Dataloader import TCGAImageLoader
 from TCGA_GenomeImage.tidy_version.v2.Network_Softmax import ConvNetSoftmax
 
 LR = 0.0001
-batch_size = 200
-lr_decay = 1e-2
-weight_decay = 1e-3
+batch_size = 100
+lr_decay = 1e-4
+weight_decay = 1e-4
 
 writer = SummaryWriter(flush_secs=1)
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("../../data/v2/DSS_labels_with_extrastuff.csv", "../../data/v2/", transform=transform)
+dataset = TCGAImageLoader("../../data/v3/DSS_labels.csv", "../../data/v3/", transform=transform)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
-train_size = int(len(dataset) * 0.8)
+train_size = int(len(dataset) * 0.75)
 test_size = len(dataset) - train_size
 print("Train size: ", train_size)
 print("Test size: ", test_size)
@@ -90,11 +90,11 @@ train_losses = []
 val_losses = []
 for ep in range(epochs):
     batch_train_auc, batch_train_loss, batch_val_auc, batch_val_loss = [], [], [], []
-    for x, dss, type, id, met_1_2, met_1_2_3, GD in trainLoader:
+    for x, type, id,met_1_2_3 in trainLoader:
         loss, acc_train, auc = batch_train(x.cuda(), met_1_2_3.cuda())
         batch_train_loss.append(loss)
         batch_train_auc.append(auc)
-    for x, dss, type, id, met_1_2, met_1_2_3, GD in valLoader:
+    for x, type, id,met_1_2_3  in valLoader:
         loss, acc_val, auc = batch_valid(x.cuda(), met_1_2_3.cuda())
         batch_val_loss.append(loss)
         batch_val_auc.append(auc)
@@ -105,13 +105,10 @@ for ep in range(epochs):
                                                                                          np.mean(batch_train_auc),
                                                                                          np.mean(batch_val_loss),
                                                                                          np.mean(batch_val_auc)))
-    writer.add_scalar('Loss/test', np.mean(batch_val_loss), ep)
+    writer.add_scalar('Loss/121088test', np.mean(batch_val_loss), ep)
     writer.add_scalar('Loss/train', np.mean(batch_train_loss), ep)
     writer.add_scalar('AUC/train', np.mean(batch_train_auc), ep)
     writer.add_scalar('AUC/test', np.mean(batch_val_auc), ep)
-    for name, weight in net.named_parameters():
-        writer.add_histogram(name, weight, ep)
-        writer.add_histogram(f'{name}.grad', weight.grad, ep)
     if (np.mean(batch_val_auc) >= 0.7 and np.mean(batch_train_auc) >= 0.7):
         torch.save({
             'epoch': ep,
