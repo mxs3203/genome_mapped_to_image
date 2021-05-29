@@ -7,8 +7,8 @@ from torchvision.transforms import transforms
 import numpy as np
 import matplotlib.pyplot as plt
 
-from TCGA_GenomeImage.tidy_version.v2.Dataloader import TCGAImageLoader
-from TCGA_GenomeImage.tidy_version.v2.Network_Softmax import ConvNetSoftmax
+from TCGA_GenomeImage.src.classic_cnn.Dataloader import TCGAImageLoader
+from TCGA_GenomeImage.src.classic_cnn.Network_Softmax import ConvNetSoftmax
 
 transform = transforms.Compose([transforms.ToTensor()])
 dataset = TCGAImageLoader("../data/v3/DSS_labels.csv", "../data/v3/",

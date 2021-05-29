@@ -7,7 +7,7 @@ from torch.nn.init import xavier_uniform_
 class ConvNetSoftmax(nn.Module):
     def __init__(self):
         super(ConvNetSoftmax, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=(7,3), stride=1)
+        self.conv1 = nn.Conv2d(in_channels=4, out_channels=64, kernel_size=(7,3), stride=1)
         self.conv2 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(2,2), stride=1)
         self.pool1 = nn.MaxPool2d(7,3)
         self.pool2 = nn.MaxPool2d(2,2)
@@ -16,7 +16,7 @@ class ConvNetSoftmax(nn.Module):
         self.fc2 = nn.Linear(2048, 2048)
         self.fc3 = nn.Linear(2048, 512)
         self.fc4 = nn.Linear(512, 2)
-        self.batchnorm2d = nn.BatchNorm2d(3)
+        self.batchnorm2d = nn.BatchNorm2d(4)
         self.batchnorm1d = nn.BatchNorm1d(57600)
         self.batchnorm1d2 = nn.BatchNorm1d(2048)
         self.batchnorm2d2 = nn.BatchNorm2d(64)

@@ -1,4 +1,5 @@
 import os
+import pickle
 
 from PIL import Image
 from torch.utils.data import Dataset
@@ -8,7 +9,7 @@ import torch
 
 class TCGAImageLoader(Dataset):
 
-    def __init__(self, csv_file, root_dir,filter_by_type=None, transform=None):
+    def __init__(self, csv_file, filter_by_type=None, transform=None):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -22,7 +23,6 @@ class TCGAImageLoader(Dataset):
             self.annotation = self.annotation[self.annotation['type'] == filter_by_type ]
             self.annotation = self.annotation[self.annotation['met'] == 1]
 
-        self.root_dir = root_dir
         self.transform = transform
 
 
@@ -32,21 +32,13 @@ class TCGAImageLoader(Dataset):
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
-        cin_loss = os.path.join(self.root_dir, self.annotation.iloc[idx, 2])
-        cin_loss = pd.read_csv(cin_loss, sep=",", dtype="float32",header=None, names = None)
-        cin_loss = np.asarray(cin_loss, dtype="float32")
-        cin_gain = os.path.join(self.root_dir, self.annotation.iloc[idx, 3])
-        cin_gain = pd.read_csv(cin_gain, sep=",", dtype="float32",header=None, names = None)
-        cin_gain = np.asarray(cin_gain, dtype="float32")
-        mut_file = os.path.join(self.root_dir, self.annotation.iloc[idx, 4])
-        mut = pd.read_csv(mut_file, sep=",", dtype="float32",header=None, names = None)
-        mut = np.asarray(mut, dtype="float32")
-        image = np.dstack((cin_gain, cin_loss,  mut))
 
-        type = self.annotation.iloc[idx, 6]
-        met_1_2_3 = np.array(self.annotation.iloc[idx, 5], dtype="long")
+        with open("../../data/{}".format(self.annotation.iloc[idx, 3]), 'rb') as f:
+            image = pickle.load(f)
+            image = image.make_n_dim_image()
+            f.close()
+        met_1_2_3 = np.array(self.annotation.iloc[idx, 4], dtype="long")
         if self.transform:
             image = self.transform(image)
 
-
-        return image,type, self.annotation.iloc[idx, 1], met_1_2_3
+        return image,self.annotation.iloc[idx, 2], self.annotation.iloc[idx, 1], met_1_2_3
