@@ -12,7 +12,7 @@ class ConvNetSoftmax(nn.Module):
         self.pool1 = nn.MaxPool2d(7,3)
         self.pool2 = nn.MaxPool2d(2,2)
         self.fc1 = nn.Linear(57600, 2048)
-        self.drop = nn.Dropout(0.6)
+        self.drop = nn.Dropout(0.5)
         self.fc2 = nn.Linear(2048, 2048)
         self.fc3 = nn.Linear(2048, 512)
         self.fc4 = nn.Linear(512, 2)
