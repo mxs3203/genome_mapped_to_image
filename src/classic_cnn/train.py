@@ -9,9 +9,9 @@ from TCGA_GenomeImage.src.classic_cnn.Dataloader import TCGAImageLoader
 from TCGA_GenomeImage.src.classic_cnn.Network_Softmax import ConvNetSoftmax
 
 LR = 0.0001
-batch_size = 100
-lr_decay = 1e-4
-weight_decay = 1e-4
+batch_size = 200
+lr_decay = 1e-5
+weight_decay = 1e-5
 
 writer = SummaryWriter(flush_secs=1)
 transform = transforms.Compose([transforms.ToTensor()])
@@ -30,6 +30,8 @@ net.to(device)
 cost_func = torch.nn.CrossEntropyLoss()
 
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=lr_decay, lr=LR, weight_decay=weight_decay)
+lambda1 = lambda epoch: 0.99 ** epoch
+scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
 writer.add_text("Hyperparams",
                 "LR={}, batchSize={},lr_decay={},weight_decay={}".format(LR, batch_size, lr_decay, weight_decay))
 writer.add_text("Model", str(net.__dict__['_modules']))
@@ -78,12 +80,13 @@ for ep in range(epochs):
         loss, acc_val, auc = batch_valid(x.cuda(), met_1_2_3.cuda())
         batch_val_loss.append(loss)
         batch_val_auc.append(auc)
-
+    if ep >= 90:
+        scheduler.step()
     print(
-        "Epoch {}: Train loss: {} Train AUC: {}, Validation loss: {} Val AUC: {}".format(ep, np.mean(batch_train_loss),
-                                                                                         np.mean(batch_train_auc),
+        "Epoch {}: Train loss: {} Train AUC: {}, Validation loss: {} Val AUC: {}, LR : {}".format(ep, np.mean(batch_train_loss),
+                                                                                                np.mean(batch_train_auc),
                                                                                          np.mean(batch_val_loss),
-                                                                                         np.mean(batch_val_auc)))
+                                                                                         np.mean(batch_val_auc), optimizer.param_groups[0]["lr"]))
     writer.add_scalar('Loss/test', np.mean(batch_val_loss), ep)
     writer.add_scalar('Loss/train', np.mean(batch_train_loss), ep)
     writer.add_scalar('AUC/train', np.mean(batch_train_auc), ep)
