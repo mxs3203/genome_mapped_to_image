@@ -5,8 +5,8 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import transforms
 
-from TCGA_GenomeImage.src.classic_cnn.Dataloader import TCGAImageLoader
-from TCGA_GenomeImage.src.classic_cnn.Network_Softmax import ConvNetSoftmax
+from TCGA_GenomeImage.src.hilbert_curve_version.Dataloader_hilbert import TCGAImageLoader
+from TCGA_GenomeImage.src.hilbert_curve_version.Network_Softmax_hilbert import ConvNetSoftmaxHilbert
 
 LR = 0.0001
 batch_size = 100
@@ -15,7 +15,7 @@ weight_decay = 1e-5
 
 writer = SummaryWriter(flush_secs=1)
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("../../data/images_by_chr/meta_data.csv")
+dataset = TCGAImageLoader("../../data/meta_data.csv")
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 train_size = int(len(dataset) * 0.75)
@@ -25,7 +25,7 @@ print("Test size: ", test_size)
 train_set, val_set = torch.utils.data.random_split(dataset, [train_size, test_size])
 trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=10, shuffle=True)
 valLoader = DataLoader(val_set, batch_size=batch_size, num_workers=10, shuffle=True)
-net = ConvNetSoftmax()
+net = ConvNetSoftmaxHilbert()
 net.to(device)
 cost_func = torch.nn.CrossEntropyLoss()
 

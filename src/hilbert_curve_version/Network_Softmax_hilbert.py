@@ -4,24 +4,21 @@ import torch.nn as nn
 from torch.nn.init import xavier_uniform_
 
 
-class ConvNetSoftmax(nn.Module):
+class ConvNetSoftmaxHilbert(nn.Module):
     def __init__(self):
-        super(ConvNetSoftmax, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=4, out_channels=32, kernel_size=(5,2), stride=1)
-        self.conv2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=(2,2), stride=1)
-        self.pool1 = nn.MaxPool2d(5,2)
-        self.pool2 = nn.MaxPool2d(2,2)
-        self.fc1 = nn.Linear(90048, 2048)
+        super(ConvNetSoftmaxHilbert, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=16, kernel_size=(3,3), padding=3,stride=3)
+        self.pool1 = nn.MaxPool2d(3,3)
+        self.fc1 = nn.Linear(275984, 512)
         self.drop = nn.Dropout(0.59)
-        self.fc2 = nn.Linear(2048, 2048)
-        self.fc3 = nn.Linear(2048, 512)
+        self.fc2 = nn.Linear(512, 512)
+        self.fc3 = nn.Linear(512, 512)
         self.fc4 = nn.Linear(512, 2)
-        self.batchnorm2d = nn.BatchNorm2d(4)
-        self.batchnorm1d = nn.BatchNorm1d(90048)
-        self.batchnorm1d2 = nn.BatchNorm1d(2048)
-        self.batchnorm2d2 = nn.BatchNorm2d(32)
+        self.batchnorm2d = nn.BatchNorm2d(1)
+        self.batchnorm1d = nn.BatchNorm1d(275984)
+        self.batchnorm1d2 = nn.BatchNorm1d(512)
+        self.batchnorm2d2 = nn.BatchNorm2d(16)
         xavier_uniform_(self.conv1.weight)
-        xavier_uniform_(self.conv2.weight)
         xavier_uniform_(self.fc1.weight)
         xavier_uniform_(self.fc2.weight)
         xavier_uniform_(self.fc3.weight)
@@ -30,8 +27,6 @@ class ConvNetSoftmax(nn.Module):
     def forward(self, x):
         x = self.batchnorm2d(x)
         x = self.pool1(F.relu(self.conv1(x)))
-        x = self.batchnorm2d2(x)
-        x = self.pool2(F.relu(self.conv2(x)))
         x = x.view(x.size(0),-1)
         x = self.batchnorm1d(x)
         x = F.relu(self.fc1(x))

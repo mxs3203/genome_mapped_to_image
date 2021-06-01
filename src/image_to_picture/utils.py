@@ -1,16 +1,22 @@
-from TCGA_GenomeImage.src.image_to_picture.Image import Image
-from TCGA_GenomeImage.src.image_to_picture.ImageCell import ImageCell
 import pandas as pd
 import numpy as np
+
+from Image import Image
+from ImageCell import ImageCell
+
+genes_per_chr = {'1':3759, '10':1593, '11':2131, '12':1867, '13':930, '14':1275,
+                 '15':1372, '16':1530, '17':1953, '18':699, '19':2057, '2':2696,
+                 '20':1039, '21':584, '22':873, '23':1348, '24':162, '3':2132,
+                 '4':1682, '5':1851, '6':2057, '7':1896, '8':1554, '9':1622}
 
 def normalize_data(data, min, max):
     return (data - min) / (max - min)
 
-def make_image(id, met, all_genes):
+def make_image(id, met, all_genes,img_size =197):
     cnt = 0
     dict = {}
-    for i in range(193):
-        for j in range(193):
+    for i in range(img_size):
+        for j in range(img_size):
             if cnt < all_genes.shape[0]:
                 img = ImageCell(all_genes['name2'].iloc[cnt],loss_val=None,gain_val=None,mut_val=None,exp_val=None,methy_val=None, chr=all_genes['chr'].iloc[cnt])
                 img.i = i
@@ -22,6 +28,24 @@ def make_image(id, met, all_genes):
                 img.j = j
             cnt += 1
         cnt += 1
+    return Image(id=id, met=met, dict_of_cells=dict)
+
+
+def make_image_chr(id, met, all_genes,chr_num=24, num_genes_chr1=3759):
+    cnt = 0
+    dict = {}
+    for i, row in all_genes.iterrows():
+        img = ImageCell(row['name2'],loss_val=None,gain_val=None,
+                        mut_val=None,exp_val=None,methy_val=None,
+                        chr=row['chr'])
+        img.i = row['chr']-1
+        img.j = cnt
+        dict[row['name2']] = img
+        limit = genes_per_chr[str(row['chr'])]
+        if cnt >= limit:
+            cnt = 0
+        else:
+            cnt += 1
     return Image(id=id, met=met, dict_of_cells=dict)
 
 def find_mutations(id,image, muts):

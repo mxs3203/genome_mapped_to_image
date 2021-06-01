@@ -1,7 +1,4 @@
-import os
 import pickle
-
-from PIL import Image
 from torch.utils.data import Dataset
 import pandas as pd
 import numpy as np
@@ -33,7 +30,7 @@ class TCGAImageLoader(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        with open("../../data/images_by_chr/{}".format(self.annotation.iloc[idx, 3]), 'rb') as f:
+        with open("../../data/flatten_vectors/{}.dat".format(self.annotation.iloc[idx, 1]), 'rb') as f:
             image = pickle.load(f)
             f.close()
         met_1_2_3 = np.array(self.annotation.iloc[idx, 4], dtype="long")
