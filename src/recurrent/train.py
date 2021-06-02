@@ -5,8 +5,8 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import transforms
 
-from TCGA_GenomeImage.src.classic_cnn.Dataloader import TCGAImageLoader
-from TCGA_GenomeImage.src.classic_cnn.Network_Softmax import ConvNetSoftmax
+from TCGA_GenomeImage.src.recurrent.DataloaderReccurent import TCGAImageLoader
+from TCGA_GenomeImage.src.recurrent.ReccurentNetwork_Softmax import RecurrentNetSoftmax
 
 LR = 0.0001
 batch_size = 100
@@ -25,7 +25,7 @@ print("Test size: ", test_size)
 train_set, val_set = torch.utils.data.random_split(dataset, [train_size, test_size])
 trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=10, shuffle=True)
 valLoader = DataLoader(val_set, batch_size=batch_size, num_workers=10, shuffle=True)
-net = ConvNetSoftmax()
+net = RecurrentNetSoftmax()
 net.to(device)
 cost_func = torch.nn.CrossEntropyLoss()
 

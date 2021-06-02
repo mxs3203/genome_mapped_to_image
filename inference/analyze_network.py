@@ -1,21 +1,24 @@
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import seaborn as sns
-from captum.attr import IntegratedGradients
 import torch
 from PIL import Image
+from captum.attr import IntegratedGradients
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
-import numpy as np
-import matplotlib.pyplot as plt
 
-from TCGA_GenomeImage.src.classic_cnn.Dataloader import TCGAImageLoader
-from TCGA_GenomeImage.src.classic_cnn.Network_Softmax import ConvNetSoftmax
+from TCGA_GenomeImage.inference.Dataloader import TCGAImageLoader
+from TCGA_GenomeImage.src.classic_cnn.models.CNN.Network_Softmax import ConvNetSoftmax
+from TCGA_GenomeImage.src.image_to_picture.utils import make_image
+
+all_genes = pd.read_csv("../data/raw_data/all_genes_ordered_by_chr.csv")
 
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("../data/v3/DSS_labels.csv", "../data/v3/",
-                          filter_by_type="OV",
-                          transform=transform)
-trainLoader = DataLoader(dataset, batch_size=1, num_workers=10, shuffle=True)
-checkpoint = torch.load("v2/models/tcga_met_model.pt")
+dataset = TCGAImageLoader("../data/meta_data.csv", filter_by_type="OV")
+trainLoader = DataLoader(dataset, batch_size=1, num_workers=10, shuffle=False)
+checkpoint = torch.load("../src/classic_cnn/models/CNN/ep_121_model.pt")
 LR = 0.0001
 net = ConvNetSoftmax()
 print(len(trainLoader))
@@ -27,108 +30,122 @@ net.eval()
 print(len(trainLoader))
 occlusion = IntegratedGradients(net)
 
+
 def makeImages(x):
-    img_cin_l = x[0, 0, :, :]*255.0
-    img_cin_l = ((img_cin_l - img_cin_l.min()) * (1/(img_cin_l.max()+1e-3 - img_cin_l.min()) * 255)).astype('uint8')
-    img_cin_g = x[0, 1, :, :]*255.0
-    img_cin_g = ((img_cin_g - img_cin_g.min()) * (1/(img_cin_g.max()+1e-3 - img_cin_g.min()) * 255)).astype('uint8')
-    img_mut = x[0, 2, :, :] * 255.0
-    img_mut = ((img_mut - img_mut.min()) * (1 / (img_mut.max()+1e-3 - img_mut.min()) * 255)).astype('uint8')
-    img_mut = Image.fromarray(img_mut, 'P')
-    img_cin_g = Image.fromarray(img_cin_g, 'P')
-    img_cin_l = Image.fromarray(img_cin_l, 'P')
-    total_img = np.dstack((img_cin_l, img_cin_g, img_mut))
-    #total_img = Image.fromarray(total_img, 'RGB')
-    return total_img
-def plot_channels(W):
-    # number of output channels
-    n_out = W.shape[0]
-    # number of input channels
-    n_in = W.shape[1]
-    w_min = W.min().item()
-    w_max = W.max().item()
-    fig, axes = plt.subplots(n_out, n_in)
-    fig.subplots_adjust(hspace=0.001)
-    out_index = 0
-    in_index = 0
-    # plot outputs as rows inputs as columns
-    for ax in axes.flat:
+    img_cin_g = x[0, 0, :, :]
+    img_cin_l = x[0, 1, :, :]
+    img_mut = x[0, 2, :, :]
+    img_exp = x[0, 3, :, :]
+    img_exp = Image.fromarray(img_exp, 'L')
+    img_mut = Image.fromarray(img_mut, 'L')
+    img_cin_g = Image.fromarray(img_cin_g, 'L')
+    img_cin_l = Image.fromarray(img_cin_l, 'L')
+    total_img = np.dstack((img_cin_g, img_cin_l, img_mut, img_exp))
+    total_img = Image.fromarray(total_img, 'RGB')
+    return img_cin_g, img_cin_l, img_mut, img_exp, total_img
 
-        if in_index > n_in - 1:
-            out_index = out_index + 1
-            in_index = 0
-        plt.imshow(W[out_index, in_index, :, :], vmin=w_min, vmax=w_max, cmap='seismic')
-        plt.show()
-        ax.set_yticklabels([])
-        ax.set_xticklabels([])
-        in_index = in_index + 1
 
-    plt.show()
 def show_data(x, y):
+    img_cin_g, img_cin_l, img_mut, img_exp, total_img = makeImages(x.cpu().detach().numpy())
+    f, axarr = plt.subplots(2, 2)
+    axarr[0, 0].imshow(img_cin_l, cmap='Blues', vmin=0, vmax=1)
+    axarr[0, 1].imshow(img_cin_g, cmap='Reds', vmin=0, vmax=1)
+    axarr[1, 0].imshow(img_mut, cmap='Greens', vmin=0, vmax=1)
+    axarr[1, 1].imshow(img_exp, cmap='seismic', vmin=0, vmax=1)
+    f.show()
+    plt.imshow(total_img, cmap='plasma', vmin=0, vmax=1)
+    plt.title('Total')
 
-    plt.imshow(makeImages(x.cpu().detach().numpy()), cmap='gray')
-    plt.title('y='+str(y))
     plt.show()
-def plot_activations(A, dim1, dim2, number_rows=1, name=""):
-    A = A[0, :, :, :].detach().numpy()
-    n_activations = A.shape[0]
 
-    print(n_activations)
-    A_min = A.min().item()
-    A_max = A.max().item()
 
-    if n_activations == 1:
+def plot_attribution(att):
+    f, axarr = plt.subplots(2, 2)
+    axarr[0, 0].imshow(att[0, :, :], cmap='Blues', vmin=0, vmax=np.max(att[0, :, :]))
+    axarr[0, 1].imshow(att[1, :, :], cmap='Reds', vmin=0, vmax=np.max(att[1, :, :]))
+    axarr[1, 0].imshow(att[2, :, :], cmap='Greens', vmin=0, vmax=np.max(att[2, :, :]))
+    axarr[1, 1].imshow(att[3, :, :], cmap='seismic', vmin=0, vmax=np.max(att[3, :, :]))
+    f.show()
 
-        # Plot the image.
-        plt.imshow(A[0, :], vmin=A_min, vmax=A_max, cmap='seismic')
-
-    else:
-        fig, axes = plt.subplots(dim1, dim2)
-        fig.set_size_inches(10, 10)
-        fig.subplots_adjust(hspace=0.1)
-        for i, ax in enumerate(axes.flat):
-            if i < n_activations:
-                # Set the label for the sub-plot.
-                ax.set_xlabel("activation:{0}".format(i + 1))
-
-                # Plot the image.
-                ax.imshow(A[i, :], vmin=A_min, vmax=A_max, cmap='seismic')
-                ax.set_xticks([])
-                ax.set_yticks([])
 
 heatmaps_loss = []
 heatmaps_gains = []
 heatmaps_mut = []
+heatmaps_exp = []
 cnt = 1
 for x, type, id, met_1_2_3 in trainLoader:
-    for d in range(1,4):
-        print("\tID: ", id)
-        baseline = torch.zeros((1,3, 193, 193))
+    print("ID: ", id)
+    for d in range(1, 5):
+        print("\t",d)
+        #show_data(x, met_1_2_3)
+        baseline = torch.zeros((1, 4, 197, 197))
         attribution = occlusion.attribute(x, baseline, target=1)
         attribution = attribution.squeeze().cpu().detach().numpy()
-        for_heatmap = np.abs(attribution[d-1, :, :])
+        #plot_attribution(attribution)
+        for_heatmap = np.abs(attribution[d - 1, :, :])
         if d == 1:
             heatmaps_gains.append(for_heatmap)
         if d == 2:
             heatmaps_loss.append(for_heatmap)
         if d == 3:
             heatmaps_mut.append(for_heatmap)
+        if d == 4:
+            heatmaps_exp.append(for_heatmap)
 
-print(len(heatmaps_loss))
-print(len(heatmaps_gains))
-print(len(heatmaps_mut))
+
 heatmaps_loss = np.array(heatmaps_loss)
 mean_loss_matrix = heatmaps_loss.mean(axis=0)
-ax = sns.heatmap(mean_loss_matrix)
+ax = sns.heatmap(mean_loss_matrix, cmap="YlGnBu")
 plt.show()
 heatmaps_gains = np.array(heatmaps_gains)
 mean_gain_matrix = heatmaps_gains.mean(axis=0)
-ax = sns.heatmap(mean_gain_matrix)
+ax = sns.heatmap(mean_gain_matrix, cmap="YlGnBu")
 plt.show()
 heatmaps_mut = np.array(heatmaps_mut)
 mean_mut_matrix = heatmaps_mut.mean(axis=0)
-ax = sns.heatmap(mean_mut_matrix)
+ax = sns.heatmap(mean_mut_matrix, cmap="YlGnBu")
 plt.show()
-np.savetxt('mut.csv', mean_mut_matrix, delimiter=',')
-np.savetxt('gain.csv', mean_gain_matrix, delimiter=',')
-np.savetxt('loss.csv', mean_loss_matrix, delimiter=',')
+heatmaps_exp = np.array(heatmaps_exp)
+mean_exp_matrix = heatmaps_exp.mean(axis=0)
+ax = sns.heatmap(mean_exp_matrix, cmap="YlGnBu")
+plt.show()
+
+image = make_image("ID", 1, all_genes)
+exp_att = image.analyze_attribution(mean_exp_matrix, 20)
+mut_att = image.analyze_attribution(mean_mut_matrix, 20)
+gain_att = image.analyze_attribution(mean_gain_matrix, 20)
+loss_att = image.analyze_attribution(mean_loss_matrix, 20)
+
+for i in exp_att:
+    print(i, exp_att[i])
+print("\n")
+for i in mut_att:
+    print(i, mut_att[i])
+print("\n")
+for i in gain_att:
+    print(i, gain_att[i])
+print("\n")
+for i in loss_att:
+    print(i, loss_att[i])
+
+
+wordcloud = WordCloud(prefer_horizontal=1,background_color="white",include_numbers=True, width=400, height=400).generate_from_frequencies(gain_att)
+plt.imshow(wordcloud)
+plt.axis("off")
+plt.title("Gain")
+plt.show()
+wordcloud = WordCloud(prefer_horizontal=1,background_color="white",include_numbers=True, width=400, height=400).generate_from_frequencies(loss_att)
+plt.imshow(wordcloud)
+plt.axis("off")
+plt.title("Loss")
+plt.show()
+wordcloud = WordCloud(prefer_horizontal=1,background_color="white",include_numbers=True, width=400, height=400).generate_from_frequencies(mut_att)
+plt.imshow(wordcloud)
+plt.axis("off")
+plt.title("Mutation")
+plt.show()
+wordcloud = WordCloud(prefer_horizontal=1,background_color="white",include_numbers=True, width=400, height=400).generate_from_frequencies(exp_att)
+plt.imshow(wordcloud)
+plt.axis("off")
+plt.title("Expression")
+plt.show()

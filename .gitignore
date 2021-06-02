@@ -3,3 +3,13 @@
 /tidy_version/v2/checkpoints/
 /tidy_version/v2/runs/
 /data/
+/src/classic_cnn/models/
+/src/classic_cnn/checkpoints/
+/src/classic_cnn/runs/
+/src/FlattenFeatures/checkpoints/
+/src/FlattenFeatures/models/
+/src/FlattenFeatures/runs/
+/src/hilbert_curve_version/checkpoints/
+/src/hilbert_curve_version/models/
+/src/hilbert_curve_version/runs/
+/src/recurrent/runs/

@@ -1,5 +1,9 @@
+import itertools
+
 import numpy as np
 from hilbertcurve.hilbertcurve import HilbertCurve
+from more_itertools import take
+
 
 class Image:
     def __init__(self, id,dict_of_cells,met):
@@ -90,3 +94,10 @@ class Image:
         self.chr_gain_matrix = np.asarray(gain, dtype="float32")
         self.chr_mut_matrix = np.asarray(mut, dtype="float32")
         #self.methy_matrix = np.asarray(methy, dtype="float32")
+
+    def analyze_attribution(self, att_mat, n):
+        mydict = {}
+        for gene in self.dict_of_cells:
+            mydict[gene] = att_mat[self.dict_of_cells[gene].i, self.dict_of_cells[gene].j]
+        sort_dict = {k: v for k, v in sorted(mydict.items(), key=lambda item: item[1],reverse=True )}
+        return dict(itertools.islice(sort_dict.items(), n))
