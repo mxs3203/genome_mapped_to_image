@@ -1,6 +1,6 @@
 
 class ImageCell:
-    def __init__(self, gene, loss_val, gain_val, mut_val, exp_val, chr, methy_val = None ):
+    def __init__(self, gene, loss_val, gain_val, mut_val, exp_val, chr, methy_val ):
         self.gene = gene
         self.loss_val = loss_val
         self.gain_val = gain_val

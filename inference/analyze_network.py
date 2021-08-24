@@ -16,7 +16,7 @@ from TCGA_GenomeImage.src.image_to_picture.utils import make_image
 all_genes = pd.read_csv("../data/raw_data/all_genes_ordered_by_chr.csv")
 
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("../data/meta_data.csv", filter_by_type="OV")
+dataset = TCGAImageLoader("../data/meta_data.csv", filter_by_type="DLBC")
 trainLoader = DataLoader(dataset, batch_size=1, num_workers=10, shuffle=False)
 checkpoint = torch.load("../src/classic_cnn/models/CNN/ep_121_model.pt")
 LR = 0.0001

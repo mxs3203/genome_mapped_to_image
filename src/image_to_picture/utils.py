@@ -1,24 +1,27 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from TCGA_GenomeImage.src.image_to_picture.Image import Image
 from TCGA_GenomeImage.src.image_to_picture.ImageCell import ImageCell
 
-genes_per_chr = {'1':3759, '10':1593, '11':2131, '12':1867, '13':930, '14':1275,
-                 '15':1372, '16':1530, '17':1953, '18':699, '19':2057, '2':2696,
-                 '20':1039, '21':584, '22':873, '23':1348, '24':162, '3':2132,
-                 '4':1682, '5':1851, '6':2057, '7':1896, '8':1554, '9':1622}
+genes_per_chr = {'1': 3759, '10': 1593, '11': 2131, '12': 1867, '13': 930, '14': 1275,
+                 '15': 1372, '16': 1530, '17': 1953, '18': 699, '19': 2057, '2': 2696,
+                 '20': 1039, '21': 584, '22': 873, '23': 1348, '24': 162, '3': 2132,
+                 '4': 1682, '5': 1851, '6': 2057, '7': 1896, '8': 1554, '9': 1622}
+
 
 def normalize_data(data, min, max):
     return (data - min) / (max - min)
 
-def make_image(id, met, all_genes,img_size =197):
+
+def make_image(id, met, all_genes, img_size=197):
     cnt = 0
     dict = {}
     for i in range(img_size):
         for j in range(img_size):
             if cnt < all_genes.shape[0]:
-                img = ImageCell(all_genes['name2'].iloc[cnt],loss_val=None,gain_val=None,mut_val=None,exp_val=None,methy_val=None, chr=all_genes['chr'].iloc[cnt])
+                img = ImageCell(all_genes['name2'].iloc[cnt], loss_val=None, gain_val=None, mut_val=None, exp_val=None,
+                                methy_val=None, chr=all_genes['chr'].iloc[cnt])
                 img.i = i
                 img.j = j
                 dict[all_genes['name2'].iloc[cnt]] = img
@@ -31,14 +34,14 @@ def make_image(id, met, all_genes,img_size =197):
     return Image(id=id, met=met, dict_of_cells=dict)
 
 
-def make_image_chr(id, met, all_genes,chr_num=24, num_genes_chr1=3759):
+def make_image_chr(id, met, all_genes, chr_num=24, num_genes_chr1=3759):
     cnt = 0
     dict = {}
     for i, row in all_genes.iterrows():
-        img = ImageCell(row['name2'],loss_val=None,gain_val=None,
-                        mut_val=None,exp_val=None,methy_val=None,
+        img = ImageCell(row['name2'], loss_val=None, gain_val=None,
+                        mut_val=None, exp_val=None, methy_val=None,
                         chr=row['chr'])
-        img.i = row['chr']-1
+        img.i = row['chr'] - 1
         img.j = cnt
         dict[row['name2']] = img
         limit = genes_per_chr[str(row['chr'])]
@@ -48,23 +51,25 @@ def make_image_chr(id, met, all_genes,chr_num=24, num_genes_chr1=3759):
             cnt += 1
     return Image(id=id, met=met, dict_of_cells=dict)
 
-def find_mutations(id,image, muts):
+
+def find_mutations(id, image, muts):
     if id in np.array(muts['sampleID']):
         muts_tmp = muts.loc[muts['sampleID'] == id]
         for i, row in muts_tmp.iterrows():
             if row['Hugo_Symbol'] in image.dict_of_cells:
                 image.dict_of_cells[row['Hugo_Symbol']].mut_val = row['PolyPhen_num']
-        #print("\tFound ", muts_tmp.shape[0], "genes affected by mutation")
+        # print("\tFound ", muts_tmp.shape[0], "genes affected by mutation")
     return image
 
-def find_gene_expression(id,image, gene_exp, min,max):
+
+def find_gene_expression(id, image, gene_exp, min, max):
     if id in np.array(gene_exp.columns):
         genes = gene_exp['gene']
         exp = gene_exp[id]
         for i in range(len(genes)):
             if genes[i] in image.dict_of_cells:
-                #print(exp[i], " -> ", normalize_data(exp[i], min,max))
-                image.dict_of_cells[genes[i]].exp_val = normalize_data(exp[i], min,max)
+                # print(exp[i], " -> ", normalize_data(exp[i], min,max))
+                image.dict_of_cells[genes[i]].exp_val = normalize_data(exp[i], min, max)
     return image
 
 
@@ -75,18 +80,20 @@ def find_losses(id, image, all_genes, ascat_loss):
             seg_end = row['End']
             seg_start = row['Start']
             # find all affected genes
-            genes_affected_full = all_genes['name2'][((all_genes['start'] >= seg_start) & (all_genes['end'] <= seg_end))]
+            genes_affected_full = all_genes['name2'][
+                ((all_genes['start'] >= seg_start) & (all_genes['end'] <= seg_end))]
             genes_affected_partial1 = all_genes['name2'][all_genes['start'].between(seg_start, seg_end, inclusive=True)]
             genes_affected_partial2 = all_genes['name2'][all_genes['end'].between(seg_start, seg_end, inclusive=True)]
 
-            genes_affected = pd.concat([genes_affected_full,genes_affected_partial1,genes_affected_partial2])
+            genes_affected = pd.concat([genes_affected_full, genes_affected_partial1, genes_affected_partial2])
             # print("\tFound ", len(genes_affected_full), "genes affected by full loss")
             # print("\tFound ", len(genes_affected_partial1), "genes affected by partial loss(start)")
             # print("\tFound ", len(genes_affected_partial2), "genes affected by partial loss(end)")
             for g in genes_affected:
                 if g in image.dict_of_cells:
-                    #print(row['log_r'], " -> ", normalize_data(row['log_r'],  ascat_loss['log_r'].max(), ascat_loss['log_r'].min()))
-                    image.dict_of_cells[g].loss_val = normalize_data(row['log_r'], ascat_loss['log_r'].max(),ascat_loss['log_r'].min())
+                    # print(row['log_r'], " -> ", normalize_data(row['log_r'],  ascat_loss['log_r'].max(), ascat_loss['log_r'].min()))
+                    image.dict_of_cells[g].loss_val = normalize_data(row['log_r'], ascat_loss['log_r'].max(),
+                                                                     ascat_loss['log_r'].min())
 
     return image
 
@@ -99,26 +106,25 @@ def find_gains(id, image, all_genes, ascat_gains):
             seg_start = row['Start']
             # find all affected genes
             genes_affected = all_genes['name2'][((all_genes['start'] >= seg_start) & (all_genes['end'] <= seg_end))]
-            #print("\tFound ", len(genes_affected), "genes affected by gain")
+            # print("\tFound ", len(genes_affected), "genes affected by gain")
             for g in genes_affected:
                 if g in image.dict_of_cells:
-                    #print(row['log_r'], " -> ", normalize_data(row['log_r'], ascat_gains['log_r'].min(), ascat_gains['log_r'].max()))
-                    image.dict_of_cells[g].gain_val = normalize_data(row['log_r'], ascat_gains['log_r'].min(), ascat_gains['log_r'].max())
+                    # print(row['log_r'], " -> ", normalize_data(row['log_r'], ascat_gains['log_r'].min(), ascat_gains['log_r'].max()))
+                    image.dict_of_cells[g].gain_val = normalize_data(row['log_r'], ascat_gains['log_r'].min(),
+                                                                     ascat_gains['log_r'].max())
 
     return image
 
 
-def find_methylation(id,image, all_genes, methy):
+def find_methylation(id, image, methy):
+    genes = methy['gene1']
     if id in np.array(methy.columns):
-        for i,row in all_genes.iterrows():
-            gene = row['name2']
-            met_g1 = np.array(methy['gene1'])
-            if gene in image.dict_of_cells and gene in met_g1:
-                vals = methy[id][methy['gene1'] == row['name2']]
-                image.dict_of_cells[gene].methy_val = vals.mean()
+        meth = methy[id]
+        for i in range(len(genes)):
+            if genes[i] in image.dict_of_cells:
+                image.dict_of_cells[genes[i]].methy_val = meth[i]
     return image
 
-# TODO: save images of each layer as example
 
 def makeImages(x):
     img_cin_g = x[0, 0, :, :]
