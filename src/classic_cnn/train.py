@@ -15,7 +15,7 @@ weight_decay = 1e-5
 
 writer = SummaryWriter(flush_secs=1)
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("../../data/images_by_chr/meta_data.csv")
+dataset = TCGAImageLoader("../../data/meta_data.csv")
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 train_size = int(len(dataset) * 0.75)
@@ -91,7 +91,7 @@ for ep in range(epochs):
     writer.add_scalar('Loss/train', np.mean(batch_train_loss), ep)
     writer.add_scalar('AUC/train', np.mean(batch_train_auc), ep)
     writer.add_scalar('AUC/test', np.mean(batch_val_auc), ep)
-    if (np.mean(batch_val_auc) >= 0.7 and np.mean(batch_train_auc) >= 0.7):
+    if (np.mean(batch_val_auc) >= 0.8 and np.mean(batch_train_auc) >= 0.8):
         torch.save({
             'epoch': ep,
             'model_state_dict': net.state_dict(),

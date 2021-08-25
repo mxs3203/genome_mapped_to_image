@@ -21,7 +21,7 @@ class TCGAImageLoader(Dataset):
         self.annotation = pd.read_csv(csv_file, sep=",")
         if filter_by_type is not None:
             self.annotation = self.annotation[self.annotation['type'] == filter_by_type ]
-            self.annotation = self.annotation[self.annotation['met'] == 1]
+            self.annotation = self.annotation[self.annotation['tp53'] == 1]
 
         self.transform = transform
 
@@ -36,7 +36,7 @@ class TCGAImageLoader(Dataset):
         with open("../data/{}".format(self.annotation.iloc[idx, 3]), 'rb') as f:
             image = pickle.load(f)
             f.close()
-        met_1_2_3 = np.array(self.annotation.iloc[idx, 4], dtype="long")
+        met_1_2_3 = np.array(self.annotation.iloc[idx, 6], dtype="long")
         if self.transform:
             image = self.transform(image)
 
