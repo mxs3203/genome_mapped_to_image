@@ -90,7 +90,7 @@ class Image:
             if self.dict_of_cells[gene].exp_val is not None:
                 exp[self.dict_of_cells[gene].i, self.dict_of_cells[gene].j] = self.dict_of_cells[gene].exp_val
             if self.dict_of_cells[gene].methy_val is not None:
-                methy[self.dict_of_cells[gene].chr, self.dict_of_cells[gene].j] = self.dict_of_cells[gene].methy_val
+                methy[self.dict_of_cells[gene].i, self.dict_of_cells[gene].j] = self.dict_of_cells[gene].methy_val
         self.chr_loss_matrix = np.asarray(loss, dtype="float32")
         self.chr_exp_matrix = np.asarray(exp, dtype="float32")
         self.chr_gain_matrix = np.asarray(gain, dtype="float32")

@@ -9,7 +9,7 @@ from TCGA_GenomeImage.src.hilbert_curve_version.Dataloader_hilbert import TCGAIm
 from TCGA_GenomeImage.src.hilbert_curve_version.Network_Softmax_hilbert import ConvNetSoftmaxHilbert
 
 LR = 0.0001
-batch_size = 100
+batch_size = 50
 lr_decay = 1e-5
 weight_decay = 1e-5
 

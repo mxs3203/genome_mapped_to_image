@@ -9,7 +9,7 @@ from TCGA_GenomeImage.src.FlattenFeatures.Dataloader_flatten import TCGAImageLoa
 from TCGA_GenomeImage.src.FlattenFeatures.Network_Softmax_Flatten import NetSoftmax
 
 LR = 0.0001
-batch_size = 200
+batch_size = 100
 lr_decay = 1e-5
 weight_decay = 1e-5
 

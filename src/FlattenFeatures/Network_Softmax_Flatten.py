@@ -7,13 +7,13 @@ from torch.nn.init import xavier_uniform_
 class NetSoftmax(nn.Module):
     def __init__(self):
         super(NetSoftmax, self).__init__()
-        self.fc1 = nn.Linear(155236, 300)
+        self.fc1 = nn.Linear(194045, 1024)
         self.drop = nn.Dropout(0.59)
-        self.fc2 = nn.Linear(4000, 4000)
-        self.fc3 = nn.Linear(4000, 512)
+        self.fc2 = nn.Linear(1024, 1024)
+        self.fc3 = nn.Linear(1024, 512)
         self.fc4 = nn.Linear(512, 2)
-        self.batchnorm1d = nn.BatchNorm1d(155236)
-        self.batchnorm1d2 = nn.BatchNorm1d(4000)
+        self.batchnorm1d = nn.BatchNorm1d(194045)
+        self.batchnorm1d2 = nn.BatchNorm1d(1024)
         xavier_uniform_(self.fc1.weight)
         xavier_uniform_(self.fc2.weight)
         xavier_uniform_(self.fc3.weight)

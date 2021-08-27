@@ -33,7 +33,7 @@ class TCGAImageLoader(Dataset):
         with open("../../data/flatten_vectors/{}.dat".format(self.annotation.iloc[idx, 1]), 'rb') as f:
             image = pickle.load(f)
             f.close()
-        met_1_2_3 = np.array(self.annotation.iloc[idx, 4], dtype="long")
+        met_1_2_3 = np.array(self.annotation.iloc[idx, 6], dtype="long")
         if self.transform:
             image = self.transform(image)
 

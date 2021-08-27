@@ -34,7 +34,7 @@ class TCGAImageLoader(Dataset):
             image = pickle.load(f)
             image = np.expand_dims(image, axis=0)
             f.close()
-        met_1_2_3 = np.array(self.annotation.iloc[idx, 4], dtype="long")
+        met_1_2_3 = np.array(self.annotation.iloc[idx, 6], dtype="long")
         if self.transform:
             image = self.transform(image)
 
