@@ -15,7 +15,7 @@ weight_decay = 1e-5
 
 writer = SummaryWriter(flush_secs=1)
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("../../data/images_by_chr/meta_data.csv")
+dataset = TCGAImageLoader("../../data/Metastatic_data/193x193Image/meta_data.csv")
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 train_size = int(len(dataset) * 0.75)

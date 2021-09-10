@@ -8,6 +8,9 @@ from utils import make_image_chr, find_mutations, find_losses, find_gains, \
 
 from TCGA_GenomeImage.src.image_to_picture.utils import find_methylation
 
+
+folder = 'TP53_data/22x3760Image'
+
 start_time = time.time()
 print("Reading clinical...")
 clinical = pd.read_csv("../../data/raw_data/clinical.csv")
@@ -27,7 +30,7 @@ with open("../../data/raw_data/methylation_mean.dat", 'rb') as f:
     methy = pickle.load(f)
     f.close()
 
-meta_data = pd.DataFrame(columns=['id', 'type', 'image_path', 'flatten_path', 'hilbert_path', 'tp53'])
+meta_data = pd.DataFrame(columns=['id', 'type', 'image_path', 'flatten_path', 'hilbert_path', 'tp53','met'])
 for index, row in clinical.iterrows():
     id = row['bcr_patient_barcode']
     type = row['type']
@@ -44,7 +47,7 @@ for index, row in clinical.iterrows():
     tmp_mut = tmp_mut[tmp_mut['Hugo_Symbol'] != "TP53"]
     print(tmp_mut.shape)
     print(id, "->", met)
-    if met in [0, 1]:
+    if tp53 in [0, 1]:
         print("\tMaking image")
         image = make_image_chr(id, met, all_genes)
         print("\tMapping losses to genes")
@@ -60,13 +63,13 @@ for index, row in clinical.iterrows():
         print("\tMapping methylation to genes")
         image = find_methylation(id, image, methy)
         print("\tStoring intermediate results in .dat binary file...")
-        with open("../../data/images_by_chr/dictionary_images/{}.dat".format(id), 'wb') as f:
+        with open("../../data/{}/dictionary_images/{}.dat".format(folder, id), 'wb') as f:
             pickle.dump(image, f)
             f.close()
         image.make_image_matrces_by_chr()
         n_dim_image = image.make_n_dim_chr_image()
         print("\tStoring n dim image in .dat file")
-        with open("../../data/images_by_chr/n_dim_images/{}.dat".format(id), 'wb') as f:
+        with open("../../data/{}/n_dim_images/{}.dat".format(folder, id), 'wb') as f:
             pickle.dump(n_dim_image, f)
             f.close()
 
@@ -74,10 +77,11 @@ for index, row in clinical.iterrows():
                                       'type': str(type),
                                       'image_path': str("n_dim_images/{}.dat".format(id)),
                                       'flatten_path': str("flatten_vectors/{}.dat".format(id)),
-                                      'hilbert_path': str("hilbert_transforms/{}.dat".format(id)),
-                                      'tp53': int(tp53)
+                                      'hilbert_path': str("hilbert_transforms/no_exist.dat"),
+                                      'tp53': int(tp53),
+                                      'met': int(met)
                                       },
                                      ignore_index=True)
 
-meta_data.to_csv("../../data/images_by_chr/meta_data.csv")
+meta_data.to_csv("../../data/{}/meta_data.csv".format(folder))
 print("Done in --- %s seconds ---" % (time.time() - start_time))

@@ -15,10 +15,14 @@ from TCGA_GenomeImage.src.image_to_picture.utils import make_image
 
 all_genes = pd.read_csv("../data/raw_data/all_genes_ordered_by_chr.csv")
 
+cancer_type = "BLCA"
+image_type = "193x193Image"
+response = "TP53"
+
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("../data/meta_data.csv", filter_by_type="KIRC")
+dataset = TCGAImageLoader("../data/{}_data/{}/meta_data.csv".format(response, image_type), filter_by_type=cancer_type)
 trainLoader = DataLoader(dataset, batch_size=1, num_workers=10, shuffle=False)
-checkpoint = torch.load("../src/classic_cnn/models/tp53_auc_80.pt")
+checkpoint = torch.load("../src/classic_cnn/models/tp53_193x193_auc_81.pt")
 LR = 0.0001
 net = ConvNetSoftmax()
 print(len(trainLoader))
@@ -36,37 +40,25 @@ def makeImages(x):
     img_cin_l = x[0, 1, :, :]
     img_mut = x[0, 2, :, :]
     img_exp = x[0, 3, :, :]
+    img_meth = x[0, 4, :, :]
     img_exp = Image.fromarray(img_exp, 'L')
     img_mut = Image.fromarray(img_mut, 'L')
     img_cin_g = Image.fromarray(img_cin_g, 'L')
     img_cin_l = Image.fromarray(img_cin_l, 'L')
-    total_img = np.dstack((img_cin_g, img_cin_l, img_mut, img_exp))
+    img_meth = Image.fromarray(img_meth, 'L')
+    total_img = np.dstack((img_cin_g, img_cin_l, img_mut, img_exp, img_meth))
     total_img = Image.fromarray(total_img, 'RGB')
-    return img_cin_g, img_cin_l, img_mut, img_exp, total_img
-
+    return img_cin_g, img_cin_l, img_mut, img_exp, img_meth, total_img
 
 def show_data(x, y):
-    img_cin_g, img_cin_l, img_mut, img_exp, total_img = makeImages(x.cpu().detach().numpy())
+    img_cin_g, img_cin_l, img_mut, img_exp, img_meth, total_img = makeImages(x.cpu().detach().numpy())
     f, axarr = plt.subplots(3, 2)
     axarr[0, 0].imshow(img_cin_l, cmap='Blues', vmin=0, vmax=1)
     axarr[0, 1].imshow(img_cin_g, cmap='Reds', vmin=0, vmax=1)
     axarr[1, 0].imshow(img_mut, cmap='Greens', vmin=0, vmax=1)
     axarr[1, 1].imshow(img_exp, cmap='seismic', vmin=0, vmax=1)
-    axarr[2, 1].imshow(img_exp, cmap='seismic', vmin=0, vmax=1)
-    f.show()
-    plt.imshow(total_img, cmap='plasma', vmin=0, vmax=1)
-    plt.title('Total')
-
-    plt.show()
-
-
-def plot_attribution(att):
-    f, axarr = plt.subplots(3, 2)
-    axarr[0, 0].imshow(att[0, :, :], cmap='Blues', vmin=0, vmax=np.max(att[0, :, :]))
-    axarr[0, 1].imshow(att[1, :, :], cmap='Reds', vmin=0, vmax=np.max(att[1, :, :]))
-    axarr[1, 0].imshow(att[2, :, :], cmap='Greens', vmin=0, vmax=np.max(att[2, :, :]))
-    axarr[1, 1].imshow(att[3, :, :], cmap='seismic', vmin=0, vmax=np.max(att[3, :, :]))
-    axarr[2, 1].imshow(att[3, :, :], cmap='seismic', vmin=0, vmax=np.max(att[4, :, :]))
+    axarr[2, 0].imshow(img_meth, cmap='seismic', vmin=0, vmax=1)
+    axarr[2, 1].imshow(total_img, cmap='plasma', vmin=0, vmax=1)
     f.show()
 
 heatmaps_meth = []
@@ -83,7 +75,6 @@ for x, type, id, met_1_2_3 in trainLoader:
         baseline = torch.zeros((1, 5, 197, 197))
         attribution = occlusion.attribute(x, baseline, target=1)
         attribution = attribution.squeeze().cpu().detach().numpy()
-        #plot_attribution(attribution)
         for_heatmap = np.abs(attribution[d - 1, :, :])
         if d == 1:
             heatmaps_gains.append(for_heatmap)
@@ -120,50 +111,27 @@ mean_meth_matrix = heatmaps_meth.mean(axis=0)
 ax = sns.heatmap(mean_meth_matrix, cmap="YlGnBu")
 plt.show()
 
+number_of_genes_returned = 20
+
 image = make_image("ID", 1, all_genes)
-exp_att = image.analyze_attribution(mean_exp_matrix, 20)
-mut_att = image.analyze_attribution(mean_mut_matrix, 20)
-gain_att = image.analyze_attribution(mean_gain_matrix, 20)
-loss_att = image.analyze_attribution(mean_loss_matrix, 20)
-meth_att = image.analyze_attribution(mean_meth_matrix, 20)
+exp_att = image.analyze_attribution(mean_exp_matrix, number_of_genes_returned, "Expression")
+mut_att = image.analyze_attribution(mean_mut_matrix, number_of_genes_returned, "Mutation")
+gain_att = image.analyze_attribution(mean_gain_matrix, number_of_genes_returned, "Gain")
+loss_att = image.analyze_attribution(mean_loss_matrix, number_of_genes_returned, "Loss")
+meth_att = image.analyze_attribution(mean_meth_matrix, number_of_genes_returned, "Methylation")
 
-for i in exp_att:
-    print(i, exp_att[i])
-print("\n")
-for i in mut_att:
-    print(i, mut_att[i])
-print("\n")
-for i in gain_att:
-    print(i, gain_att[i])
-print("\n")
-for i in loss_att:
-    print(i, loss_att[i])
-for i in meth_att:
-    print(i, meth_att[i])
+total_df = pd.concat([exp_att,mut_att,gain_att,loss_att, meth_att])
+total_df.to_csv("../Results/{}_{}_{}_top_{}.csv".format(cancer_type, image_type, response, number_of_genes_returned))
 
+number_of_genes_returned = 38000
 
-wordcloud = WordCloud(prefer_horizontal=1,background_color="white",include_numbers=True, width=400, height=400).generate_from_frequencies(gain_att)
-plt.imshow(wordcloud)
-plt.axis("off")
-plt.title("Gain")
-plt.show()
-wordcloud = WordCloud(prefer_horizontal=1,background_color="white",include_numbers=True, width=400, height=400).generate_from_frequencies(loss_att)
-plt.imshow(wordcloud)
-plt.axis("off")
-plt.title("Loss")
-plt.show()
-wordcloud = WordCloud(prefer_horizontal=1,background_color="white",include_numbers=True, width=400, height=400).generate_from_frequencies(mut_att)
-plt.imshow(wordcloud)
-plt.axis("off")
-plt.title("Mutation")
-plt.show()
-wordcloud = WordCloud(prefer_horizontal=1,background_color="white",include_numbers=True, width=400, height=400).generate_from_frequencies(exp_att)
-plt.imshow(wordcloud)
-plt.axis("off")
-plt.title("Expression")
-plt.show()
-wordcloud = WordCloud(prefer_horizontal=1,background_color="white",include_numbers=True, width=400, height=400).generate_from_frequencies(meth_att)
-plt.imshow(wordcloud)
-plt.axis("off")
-plt.title("Methylation")
-plt.show()
+image = make_image("ID", 1, all_genes)
+exp_att = image.analyze_attribution(mean_exp_matrix, number_of_genes_returned, "Expression")
+mut_att = image.analyze_attribution(mean_mut_matrix, number_of_genes_returned, "Mutation")
+gain_att = image.analyze_attribution(mean_gain_matrix, number_of_genes_returned, "Gain")
+loss_att = image.analyze_attribution(mean_loss_matrix, number_of_genes_returned, "Loss")
+meth_att = image.analyze_attribution(mean_meth_matrix, number_of_genes_returned, "Methylation")
+
+total_df = pd.concat([exp_att,mut_att,gain_att,loss_att, meth_att])
+total_df.to_csv("../Results/{}_{}_{}_top_{}.csv".format(cancer_type, image_type, response, number_of_genes_returned))
+

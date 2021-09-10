@@ -15,7 +15,7 @@ weight_decay = 1e-5
 
 writer = SummaryWriter(flush_secs=1)
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("../../data/meta_data.csv")
+dataset = TCGAImageLoader("../../data/Metastatic_data/193x193Image/meta_data.csv")
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 train_size = int(len(dataset) * 0.75)
@@ -35,7 +35,7 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
 writer.add_text("Hyperparams",
                 "LR={}, batchSize={},lr_decay={},weight_decay={}".format(LR, batch_size, lr_decay, weight_decay))
 writer.add_text("Model", str(net.__dict__['_modules']))
-epochs = 500
+epochs = 200
 
 
 def acc(y_hat, y):
@@ -80,7 +80,7 @@ for ep in range(epochs):
         loss, acc_val, auc = batch_valid(x.cuda(), met_1_2_3.cuda())
         batch_val_loss.append(loss)
         batch_val_auc.append(auc)
-    if ep >= 90:
+    if ep >= 120:
         scheduler.step()
     print(
         "Epoch {}: Train loss: {} Train AUC: {}, Validation loss: {} Val AUC: {}, LR : {}".format(ep, np.mean(batch_train_loss),
@@ -91,7 +91,7 @@ for ep in range(epochs):
     writer.add_scalar('Loss/train', np.mean(batch_train_loss), ep)
     writer.add_scalar('AUC/train', np.mean(batch_train_auc), ep)
     writer.add_scalar('AUC/test', np.mean(batch_val_auc), ep)
-    if (np.mean(batch_val_auc) >= 0.8 and np.mean(batch_train_auc) >= 0.8):
+    if (np.mean(batch_val_auc) >= 0.78 and np.mean(batch_train_auc) >= 0.78):
         torch.save({
             'epoch': ep,
             'model_state_dict': net.state_dict(),

@@ -33,10 +33,10 @@ class TCGAImageLoader(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        with open("../../data/images_by_chr/{}".format(self.annotation.iloc[idx, 3]), 'rb') as f:
+        with open("../../data/Metastatic_data/193x193Image/{}".format(self.annotation.iloc[idx, 3]), 'rb') as f:
             image = pickle.load(f)
             f.close()
-        met_1_2_3 = np.array(self.annotation.iloc[idx, 4], dtype="long")
+        met_1_2_3 = np.array(self.annotation.iloc[idx, 7], dtype="long")
         if self.transform:
             image = self.transform(image)
 

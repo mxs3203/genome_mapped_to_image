@@ -30,7 +30,7 @@ class TCGAImageLoader(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        with open("../../data/flatten_vectors/{}.dat".format(self.annotation.iloc[idx, 1]), 'rb') as f:
+        with open("../../data/TP53_data/193x193Image/{}".format(self.annotation.iloc[idx, 4]), 'rb') as f:
             image = pickle.load(f)
             f.close()
         met_1_2_3 = np.array(self.annotation.iloc[idx, 6], dtype="long")

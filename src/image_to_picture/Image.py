@@ -2,7 +2,7 @@ import itertools
 
 import numpy as np
 from hilbertcurve.hilbertcurve import HilbertCurve
-from more_itertools import take
+import pandas as pd
 
 
 class Image:
@@ -97,9 +97,14 @@ class Image:
         self.chr_mut_matrix = np.asarray(mut, dtype="float32")
         self.chr_methy_matrix = np.asarray(methy, dtype="float32")
 
-    def analyze_attribution(self, att_mat, n):
+    def analyze_attribution(self, att_mat, n, type):
         mydict = {}
         for gene in self.dict_of_cells:
             mydict[gene] = att_mat[self.dict_of_cells[gene].i, self.dict_of_cells[gene].j]
         sort_dict = {k: v for k, v in sorted(mydict.items(), key=lambda item: item[1],reverse=True )}
-        return dict(itertools.islice(sort_dict.items(), n))
+        sort_dict = dict(itertools.islice(sort_dict.items(), n))
+        df = pd.DataFrame.from_dict(sort_dict, orient='index')
+        df['type'] = type
+        df['gene'] = df.index
+        df.reset_index(drop=True)
+        return df
