@@ -9,7 +9,10 @@ import torch
 
 class TCGAImageLoader(Dataset):
 
-    def __init__(self, csv_file, filter_by_type=None, transform=None):
+    def __init__(self, csv_file,response_var='tp53',folder_name='TP53_data',
+                 image_type='193x193Image', response_column_index=-1,
+                 predictor_column_index = -1,
+                 filter_by_type=None, transform=None):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -21,10 +24,13 @@ class TCGAImageLoader(Dataset):
         self.annotation = pd.read_csv(csv_file, sep=",")
         if filter_by_type is not None:
             self.annotation = self.annotation[self.annotation['type'] == filter_by_type ]
-            self.annotation = self.annotation[self.annotation['tp53'] == 1]
+            self.annotation = self.annotation[self.annotation[response_var] == 1]
 
         self.transform = transform
-
+        self.folder_name = folder_name
+        self.image_type = image_type
+        self.response_column_index = response_column_index
+        self.predictor_column_index = predictor_column_index
 
     def __len__(self):
         return len(self.annotation)
@@ -33,10 +39,10 @@ class TCGAImageLoader(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        with open("../data/TP53_data/193x193Image/{}".format(self.annotation.iloc[idx, 3]), 'rb') as f:
+        with open("../data/{}/{}/{}".format(self.folder_name, self.image_type, self.annotation.iloc[idx, self.predictor_column_index]), 'rb') as f:
             image = pickle.load(f)
             f.close()
-        met_1_2_3 = np.array(self.annotation.iloc[idx, 6], dtype="long")
+        met_1_2_3 = np.array(self.annotation.iloc[idx, self.response_column_index], dtype="long")
         if self.transform:
             image = self.transform(image)
 

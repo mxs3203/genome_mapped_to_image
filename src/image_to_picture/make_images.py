@@ -5,7 +5,7 @@ import time
 from utils import make_image, find_gains, find_losses, find_mutations, \
     find_gene_expression, find_methylation
 
-folder = 'TP53_data/193x193Image'
+folder = 'TP53_data/Random193x193Image'
 
 start_time = time.time()
 print("Reading clinical...")
@@ -16,7 +16,8 @@ ascat_loss = ascat.loc[ascat['loss'] == True]
 ascat_gain = ascat.loc[ascat['gain'] == True]
 print("Reading all gene definition...")
 all_genes = pd.read_csv("../../data/raw_data/all_genes_ordered_by_chr.csv")
-all_genes = all_genes[all_genes['name2'] != "TP53"]
+#all_genes = all_genes.sample(frac=1).reset_index(drop=True)
+#all_genes = all_genes[all_genes['name2'] != "TP53"]
 print("Reading Muts...")
 muts = pd.read_csv("../../data/raw_data/muts.csv")
 print("Reading gene exp...")

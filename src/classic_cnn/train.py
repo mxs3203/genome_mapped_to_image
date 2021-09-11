@@ -8,14 +8,23 @@ from torchvision.transforms import transforms
 from TCGA_GenomeImage.src.classic_cnn.Dataloader import TCGAImageLoader
 from TCGA_GenomeImage.src.classic_cnn.Network_Softmax import ConvNetSoftmax
 
+# Training Params
 LR = 0.0001
 batch_size = 100
 lr_decay = 1e-5
 weight_decay = 1e-5
+epochs = 200
+start_of_lr_decrease = 120
+# Dataset Params
+folder = "TP53_data"
+image_type = "22x3760Image"
+predictor_column = 3
+response_column = 6
 
 writer = SummaryWriter(flush_secs=1)
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("../../data/Metastatic_data/193x193Image/meta_data.csv")
+dataset = TCGAImageLoader("../../data/{}/{}/meta_data.csv".format(folder, image_type),
+                          folder, image_type, predictor_column, response_column)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 train_size = int(len(dataset) * 0.75)
@@ -35,7 +44,6 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
 writer.add_text("Hyperparams",
                 "LR={}, batchSize={},lr_decay={},weight_decay={}".format(LR, batch_size, lr_decay, weight_decay))
 writer.add_text("Model", str(net.__dict__['_modules']))
-epochs = 200
 
 
 def acc(y_hat, y):
@@ -80,13 +88,13 @@ for ep in range(epochs):
         loss, acc_val, auc = batch_valid(x.cuda(), met_1_2_3.cuda())
         batch_val_loss.append(loss)
         batch_val_auc.append(auc)
-    if ep >= 120:
+    if ep >= start_of_lr_decrease:
         scheduler.step()
     print(
-        "Epoch {}: Train loss: {} Train AUC: {}, Validation loss: {} Val AUC: {}, LR : {}".format(ep, np.mean(batch_train_loss),
-                                                                                                np.mean(batch_train_auc),
-                                                                                         np.mean(batch_val_loss),
-                                                                                         np.mean(batch_val_auc), optimizer.param_groups[0]["lr"]))
+        "Epoch {}: Train loss: {} Train AUC: {}, Validation loss: {} Val AUC: {}, LR : {}".format(ep,
+            np.mean(batch_train_loss),np.mean(batch_train_auc),
+            np.mean( batch_val_loss),np.mean(batch_val_auc),
+            optimizer.param_groups[0]["lr"]))
     writer.add_scalar('Loss/test', np.mean(batch_val_loss), ep)
     writer.add_scalar('Loss/train', np.mean(batch_train_loss), ep)
     writer.add_scalar('AUC/train', np.mean(batch_train_auc), ep)

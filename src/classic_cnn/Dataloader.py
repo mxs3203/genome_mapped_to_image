@@ -9,7 +9,7 @@ import torch
 
 class TCGAImageLoader(Dataset):
 
-    def __init__(self, csv_file, filter_by_type=None, transform=None):
+    def __init__(self, csv_file,  folder, image_type, predictor_column, response_column, filter_by_type=None, transform=None, ):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -24,7 +24,10 @@ class TCGAImageLoader(Dataset):
             self.annotation = self.annotation[self.annotation['met'] == 1]
 
         self.transform = transform
-
+        self.folder = folder
+        self.image_type = image_type
+        self.predictor_column = predictor_column
+        self.response_column = response_column
 
     def __len__(self):
         return len(self.annotation)
@@ -33,10 +36,10 @@ class TCGAImageLoader(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        with open("../../data/Metastatic_data/193x193Image/{}".format(self.annotation.iloc[idx, 3]), 'rb') as f:
+        with open("../../data/{}/{}/{}".format(self.folder,self.image_type,self.annotation.iloc[idx, self.predictor_column]), 'rb') as f:
             image = pickle.load(f)
             f.close()
-        met_1_2_3 = np.array(self.annotation.iloc[idx, 7], dtype="long")
+        met_1_2_3 = np.array(self.annotation.iloc[idx, self.response_column], dtype="long")
         if self.transform:
             image = self.transform(image)
 
