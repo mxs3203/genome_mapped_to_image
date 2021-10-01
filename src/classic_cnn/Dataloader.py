@@ -1,11 +1,11 @@
-import os
 import pickle
 
-from PIL import Image
 from torch.utils.data import Dataset
 import pandas as pd
 import numpy as np
 import torch
+from sklearn import preprocessing
+
 
 class TCGAImageLoader(Dataset):
 
@@ -17,12 +17,12 @@ class TCGAImageLoader(Dataset):
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
-
+        le = preprocessing.LabelEncoder()
         self.annotation = pd.read_csv(csv_file, sep=",")
         if filter_by_type is not None:
-            self.annotation = self.annotation[self.annotation['type'] == filter_by_type ]
-            self.annotation = self.annotation[self.annotation['met'] == 1]
+            self.annotation = self.annotation[self.annotation.type.isin(filter_by_type)]
 
+        self.annotation['encoded_type'] = le.fit_transform(self.annotation['type'])
         self.transform = transform
         self.folder = folder
         self.image_type = image_type
@@ -39,8 +39,8 @@ class TCGAImageLoader(Dataset):
         with open("../../data/{}/{}/{}".format(self.folder,self.image_type,self.annotation.iloc[idx, self.predictor_column]), 'rb') as f:
             image = pickle.load(f)
             f.close()
-        met_1_2_3 = np.array(self.annotation.iloc[idx, self.response_column], dtype="long")
+        y = np.array(self.annotation.iloc[idx, self.response_column], dtype="long")
         if self.transform:
             image = self.transform(image)
 
-        return image,self.annotation.iloc[idx, 2], self.annotation.iloc[idx, 1], met_1_2_3
+        return image,self.annotation.iloc[idx, 2], self.annotation.iloc[idx, 1], y

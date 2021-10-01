@@ -2,6 +2,7 @@ import os
 import pickle
 
 from PIL import Image
+from sklearn import preprocessing
 from torch.utils.data import Dataset
 import pandas as pd
 import numpy as np
@@ -21,11 +22,13 @@ class TCGAImageLoader(Dataset):
                 on a sample.
         """
 
+        le = preprocessing.LabelEncoder()
         self.annotation = pd.read_csv(csv_file, sep=",")
         if filter_by_type is not None:
             self.annotation = self.annotation[self.annotation['type'] == filter_by_type ]
             self.annotation = self.annotation[self.annotation[response_var] == 1]
 
+        self.annotation['encoded_type'] = le.fit_transform(self.annotation['type'])
         self.transform = transform
         self.folder_name = folder_name
         self.image_type = image_type
@@ -42,8 +45,8 @@ class TCGAImageLoader(Dataset):
         with open("../data/{}/{}/{}".format(self.folder_name, self.image_type, self.annotation.iloc[idx, self.predictor_column_index]), 'rb') as f:
             image = pickle.load(f)
             f.close()
-        met_1_2_3 = np.array(self.annotation.iloc[idx, self.response_column_index], dtype="long")
+        y = np.array(self.annotation.iloc[idx, self.response_column_index], dtype="long")
         if self.transform:
             image = self.transform(image)
 
-        return image,self.annotation.iloc[idx, 2], self.annotation.iloc[idx, 1], met_1_2_3
+        return image,self.annotation.iloc[idx, 2], self.annotation.iloc[idx, 1], y

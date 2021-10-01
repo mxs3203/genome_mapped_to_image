@@ -10,18 +10,18 @@ class ConvNetSoftmax(nn.Module):
         kernel_size = 3
         kernels = 32
         self.conv1 = nn.Conv2d(in_channels=5, out_channels=kernels, kernel_size=(kernel_size,kernel_size),
-                               stride=1,padding=2)
+                               stride=1,padding=0)
         self.conv2 = nn.Conv2d(in_channels=kernels, out_channels=kernels, kernel_size=(kernel_size,kernel_size),
-                               stride=1, padding=2)
+                               stride=1, padding=0)
         self.pool1 = nn.MaxPool2d(kernel_size,kernel_size)
         self.pool2 = nn.MaxPool2d(kernel_size,kernel_size)
-        self.fc1 = nn.Linear(40128, 2048)
+        self.fc1 = nn.Linear(14112, 2048)
         self.drop = nn.Dropout(0.59)
         self.fc2 = nn.Linear(2048, 2048)
         self.fc3 = nn.Linear(2048, 512)
-        self.fc4 = nn.Linear(512, 2)
+        self.fc4 = nn.Linear(512, 6)
         self.batchnorm2d = nn.BatchNorm2d(5)
-        self.batchnorm1d = nn.BatchNorm1d(40128)
+        self.batchnorm1d = nn.BatchNorm1d(14112)
         self.batchnorm1d2 = nn.BatchNorm1d(2048)
         self.batchnorm2d2 = nn.BatchNorm2d(kernels)
         xavier_uniform_(self.conv1.weight)

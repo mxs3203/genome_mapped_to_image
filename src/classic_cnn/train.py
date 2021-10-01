@@ -4,10 +4,9 @@ from sklearn.metrics import roc_auc_score
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import transforms
-
+from sklearn.metrics import classification_report
 from TCGA_GenomeImage.src.classic_cnn.Dataloader import TCGAImageLoader
 from TCGA_GenomeImage.src.classic_cnn.Network_Softmax import ConvNetSoftmax
-
 # Training Params
 LR = 0.0001
 batch_size = 100
@@ -17,14 +16,14 @@ epochs = 200
 start_of_lr_decrease = 120
 # Dataset Params
 folder = "TP53_data"
-image_type = "22x3760Image"
+image_type = "193x193Image"
 predictor_column = 3
-response_column = 6
+response_column = 8
 
 writer = SummaryWriter(flush_secs=1)
 transform = transforms.Compose([transforms.ToTensor()])
 dataset = TCGAImageLoader("../../data/{}/{}/meta_data.csv".format(folder, image_type),
-                          folder, image_type, predictor_column, response_column)
+                          folder, image_type, predictor_column, response_column, filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA'])
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 train_size = int(len(dataset) * 0.75)
@@ -60,10 +59,15 @@ def batch_train(x, y):
     y_hat = net(x)
     loss = cost_func(y_hat, y)
     accuracy, pred_classes = acc(y_hat, y)
-    auc = roc_auc_score(y.cpu().detach().numpy(), pred_classes.cpu().detach().numpy())
+    report = classification_report(
+        digits=6,
+        y_true=y.cpu().detach().numpy(),
+        y_pred=pred_classes.cpu().detach().numpy(),
+        output_dict=True,
+        zero_division = 0)
     loss.backward()
     optimizer.step()
-    return loss.item(), accuracy.item(), auc
+    return loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score']
 
 
 def batch_valid(x, y):
@@ -72,34 +76,44 @@ def batch_valid(x, y):
         y_hat = net(x)
         loss = cost_func(y_hat, y)
         accuracy, pred_classes = acc(y_hat, y)
-        auc = roc_auc_score(y.cpu().detach().numpy(), pred_classes.cpu().detach().numpy())
-        return loss.item(), accuracy.item(), auc
+        report = classification_report(
+            digits=6,
+            y_true=y.cpu().detach().numpy(),
+            y_pred=pred_classes.cpu().detach().numpy(),
+            output_dict=True,
+            zero_division = 0)
+        return loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score']
 
 
 train_losses = []
 val_losses = []
 for ep in range(epochs):
-    batch_train_auc, batch_train_loss, batch_val_auc, batch_val_loss = [], [], [], []
-    for x, type, id, met_1_2_3 in trainLoader:
-        loss, acc_train, auc = batch_train(x.cuda(), met_1_2_3.cuda())
+    batch_train_f1,batch_val_recall,batch_val_precision, \
+    batch_train_loss, batch_val_f1, batch_val_loss = [], [], [], [],[],[]
+    for x, type, id, y_dat in trainLoader:
+        loss, acc_train, precision,recall,f1 = batch_train(x.cuda(), y_dat.cuda())
         batch_train_loss.append(loss)
-        batch_train_auc.append(auc)
-    for x, type, id, met_1_2_3 in valLoader:
-        loss, acc_val, auc = batch_valid(x.cuda(), met_1_2_3.cuda())
+        batch_train_f1.append(f1)
+    for x, type, id, y_dat in valLoader:
+        loss, acc_val,  precision,recall,f1 = batch_valid(x.cuda(), y_dat.cuda())
         batch_val_loss.append(loss)
-        batch_val_auc.append(auc)
+        batch_val_f1.append(f1)
+        batch_val_recall.append(recall)
+        batch_val_precision.append(precision)
     if ep >= start_of_lr_decrease:
         scheduler.step()
     print(
-        "Epoch {}: Train loss: {} Train AUC: {}, Validation loss: {} Val AUC: {}, LR : {}".format(ep,
-            np.mean(batch_train_loss),np.mean(batch_train_auc),
-            np.mean( batch_val_loss),np.mean(batch_val_auc),
+        "Epoch {}: Train loss: {} Train F1: {}, Validation loss: {} Val F1: {}, Val Prec: {} ,Val Recall: {}, LR : {}".format(ep,
+            np.mean(batch_train_loss),np.mean(batch_train_f1),
+            np.mean( batch_val_loss),np.mean(batch_val_f1),np.mean(batch_val_precision),np.mean(batch_val_recall),
             optimizer.param_groups[0]["lr"]))
     writer.add_scalar('Loss/test', np.mean(batch_val_loss), ep)
     writer.add_scalar('Loss/train', np.mean(batch_train_loss), ep)
-    writer.add_scalar('AUC/train', np.mean(batch_train_auc), ep)
-    writer.add_scalar('AUC/test', np.mean(batch_val_auc), ep)
-    if (np.mean(batch_val_auc) >= 0.78 and np.mean(batch_train_auc) >= 0.78):
+    writer.add_scalar('F1/train', np.mean(batch_train_f1), ep)
+    writer.add_scalar('F1/test', np.mean(batch_val_f1), ep)
+    writer.add_scalar('Precision/test', np.mean(batch_val_precision), ep)
+    writer.add_scalar('Recall/test', np.mean(batch_val_recall), ep)
+    if (np.mean(batch_val_f1) >= 0.78 and np.mean(batch_train_f1) >= 0.78):
         torch.save({
             'epoch': ep,
             'model_state_dict': net.state_dict(),

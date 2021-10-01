@@ -9,7 +9,7 @@ from utils import make_image_chr, find_mutations, find_losses, find_gains, \
 from TCGA_GenomeImage.src.image_to_picture.utils import find_methylation
 
 
-folder = 'TP53_data/22x3760Image'
+folder = 'TP53_data/Random22x3760Image/'
 
 start_time = time.time()
 print("Reading clinical...")
@@ -20,6 +20,7 @@ ascat_loss = ascat.loc[ascat['loss'] == True]
 ascat_gain = ascat.loc[ascat['gain'] == True]
 print("Reading all gene definition...")
 all_genes = pd.read_csv("../../data/raw_data/all_genes_ordered_by_chr.csv")
+all_genes = all_genes.sample(frac=1).reset_index(drop=True)
 all_genes = all_genes[all_genes['name2'] != "TP53"]
 print("Reading Muts...")
 muts = pd.read_csv("../../data/raw_data/muts.csv")

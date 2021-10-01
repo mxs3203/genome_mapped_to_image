@@ -11,7 +11,8 @@ from torchvision.transforms import transforms
 
 from TCGA_GenomeImage.inference.Dataloader import TCGAImageLoader
 from TCGA_GenomeImage.src.classic_cnn.Network_Softmax import ConvNetSoftmax
-from TCGA_GenomeImage.src.image_to_picture.utils import make_image
+from TCGA_GenomeImage.src.image_to_picture.utils import make_image, make_image_chr
+
 
 def makeImages(x):
     img_cin_g = x[0, 0, :, :]
@@ -42,23 +43,22 @@ def show_data(x, y):
 all_genes = pd.read_csv("../data/raw_data/all_genes_ordered_by_chr.csv")
 
 # Script Params
-cancer_types = ['STAD','KIRC', 'UCEC','BLCA', 'HNSC', 'OV', 'DLBC', 'COAD']
+cancer_types = ['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA']# ['KIRC','STAD', 'UCEC','BLCA', 'HNSC', 'OV', 'DLBC', 'COAD']
 # Read this from Metadata!!
-image_type = "22x3760Image"
+image_type = "193x193Image"
 response = "TP53"
 response_var="tp53"
-meta_data_response_column_index = 6
+meta_data_response_column_index = 8
 predictor_column_index = 3
 
 # Model Params
 net = ConvNetSoftmax()
 LR = 0.0001
-checkpoint = torch.load("../src/classic_cnn/models/tp53_22x3760_auc_80.pt")
+checkpoint = torch.load("../src/classic_cnn/models/193_cancer_type_pred_f1_85.pt")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=0.01, lr=LR, weight_decay=0.001)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 net.eval()
-
 # make IG Instance of a model
 occlusion = IntegratedGradients(net)
 
@@ -81,13 +81,13 @@ for type in cancer_types:
     heatmaps_exp = []
 
     # iterate sample by samples
-    for x, type, id, met_1_2_3 in trainLoader:
+    for x, type, id, y_dat in trainLoader:
         #print("ID: ", id)
         for d in range(1, 6):
             #print("\t",d)
             #show_data(x, met_1_2_3)
             baseline = torch.zeros((1, x.shape[1], x.shape[2], x.shape[3]))
-            attribution = occlusion.attribute(x, baseline, target=int(met_1_2_3))
+            attribution = occlusion.attribute(x, baseline, target=int(y_dat))
             attribution = attribution.squeeze().cpu().detach().numpy()
             for_heatmap = np.abs(attribution[d - 1, :, :])
             if d == 1:
@@ -124,9 +124,9 @@ for type in cancer_types:
     ax = sns.heatmap(mean_meth_matrix, cmap="YlGnBu")
     plt.show()
 
-    number_of_genes_returned = 20
-
-    image = make_image("ID", 1, all_genes)
+    number_of_genes_returned = all_genes.shape[0]
+    folder = "CancerType"
+    image = make_image_chr("ID", 1, all_genes)
     exp_att = image.analyze_attribution(mean_exp_matrix, number_of_genes_returned, "Expression")
     mut_att = image.analyze_attribution(mean_mut_matrix, number_of_genes_returned, "Mutation")
     gain_att = image.analyze_attribution(mean_gain_matrix, number_of_genes_returned, "Gain")
@@ -134,17 +134,5 @@ for type in cancer_types:
     meth_att = image.analyze_attribution(mean_meth_matrix, number_of_genes_returned, "Methylation")
 
     total_df = pd.concat([exp_att,mut_att,gain_att,loss_att, meth_att])
-    total_df.to_csv("../Results/{}_{}_{}_top_{}.csv".format(type, image_type, response, number_of_genes_returned))
-
-    number_of_genes_returned = 38000
-
-    image = make_image("ID", 1, all_genes)
-    exp_att = image.analyze_attribution(mean_exp_matrix, number_of_genes_returned, "Expression")
-    mut_att = image.analyze_attribution(mean_mut_matrix, number_of_genes_returned, "Mutation")
-    gain_att = image.analyze_attribution(mean_gain_matrix, number_of_genes_returned, "Gain")
-    loss_att = image.analyze_attribution(mean_loss_matrix, number_of_genes_returned, "Loss")
-    meth_att = image.analyze_attribution(mean_meth_matrix, number_of_genes_returned, "Methylation")
-
-    total_df = pd.concat([exp_att,mut_att,gain_att,loss_att, meth_att])
-    total_df.to_csv("../Results/{}_{}_{}_top_{}.csv".format(type, image_type, response, number_of_genes_returned))
+    total_df.to_csv("../Results/{}/{}_{}_{}_top_{}.csv".format(folder,type, image_type, response, number_of_genes_returned))
 
