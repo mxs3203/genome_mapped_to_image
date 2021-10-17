@@ -26,7 +26,6 @@ class TCGAImageLoader(Dataset):
         self.annotation = pd.read_csv(csv_file, sep=",")
         if filter_by_type is not None:
             self.annotation = self.annotation[self.annotation['type'] == filter_by_type ]
-            self.annotation = self.annotation[self.annotation[response_var] == 1]
 
         self.annotation['encoded_type'] = le.fit_transform(self.annotation['type'])
         self.transform = transform

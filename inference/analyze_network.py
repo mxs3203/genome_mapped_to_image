@@ -83,23 +83,16 @@ for type in cancer_types:
     # iterate sample by samples
     for x, type, id, y_dat in trainLoader:
         #print("ID: ", id)
-        for d in range(1, 6):
-            #print("\t",d)
-            #show_data(x, met_1_2_3)
-            baseline = torch.zeros((1, x.shape[1], x.shape[2], x.shape[3]))
-            attribution = occlusion.attribute(x, baseline, target=int(y_dat))
-            attribution = attribution.squeeze().cpu().detach().numpy()
-            for_heatmap = np.abs(attribution[d - 1, :, :])
-            if d == 1:
-                heatmaps_gains.append(for_heatmap)
-            if d == 2:
-                heatmaps_loss.append(for_heatmap)
-            if d == 3:
-                heatmaps_mut.append(for_heatmap)
-            if d == 4:
-                heatmaps_exp.append(for_heatmap)
-            if d == 5:
-                heatmaps_meth.append(for_heatmap)
+        #print("\t",d)
+        #show_data(x, met_1_2_3)
+        baseline = torch.zeros((1, x.shape[1], x.shape[2], x.shape[3]))
+        attribution = occlusion.attribute(x, baseline, target=int(y_dat))
+        attribution = attribution.squeeze().cpu().detach().numpy()
+        heatmaps_gains.append(np.abs(attribution[0, :, :]))
+        heatmaps_loss.append(np.abs(attribution[1, :, :]))
+        heatmaps_mut.append(np.abs(attribution[2, :, :]))
+        heatmaps_exp.append(np.abs(attribution[3, :, :]))
+        heatmaps_meth.append(np.abs(attribution[4, :, :]))
 
     # make a mean value for every gene for loses, gains, etc...
     heatmaps_loss = np.array(heatmaps_loss)
@@ -124,9 +117,9 @@ for type in cancer_types:
     ax = sns.heatmap(mean_meth_matrix, cmap="YlGnBu")
     plt.show()
 
-    number_of_genes_returned = all_genes.shape[0]
+    number_of_genes_returned = all_genes.shape[0]-1
     folder = "CancerType"
-    image = make_image_chr("ID", 1, all_genes)
+    image = make_image("ID", 1, all_genes)
     exp_att = image.analyze_attribution(mean_exp_matrix, number_of_genes_returned, "Expression")
     mut_att = image.analyze_attribution(mean_mut_matrix, number_of_genes_returned, "Mutation")
     gain_att = image.analyze_attribution(mean_gain_matrix, number_of_genes_returned, "Gain")
