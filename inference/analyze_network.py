@@ -7,11 +7,10 @@ import torch
 from PIL import Image
 from captum.attr import IntegratedGradients
 from torch.utils.data import DataLoader
-from torchvision.transforms import transforms
 
-from TCGA_GenomeImage.inference.Dataloader import TCGAImageLoader
-from TCGA_GenomeImage.src.classic_cnn.Network_Softmax import ConvNetSoftmax
-from TCGA_GenomeImage.src.image_to_picture.utils import make_image, make_image_chr
+from inference.Dataloader import TCGAImageLoader
+from src.classic_cnn.Network_Softmax import ConvNetSoftmax
+from src.image_to_picture.utils import make_image
 
 
 def makeImages(x):
@@ -43,18 +42,18 @@ def show_data(x, y):
 all_genes = pd.read_csv("../data/raw_data/all_genes_ordered_by_chr.csv")
 
 # Script Params
-cancer_types = ['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA']# ['KIRC','STAD', 'UCEC','BLCA', 'HNSC', 'OV', 'DLBC', 'COAD']
+cancer_types = [ 'OV','COAD', 'UCEC', 'KIRC','STAD', 'BLCA']# ['KIRC','STAD', 'UCEC','BLCA', 'HNSC', 'OV', 'DLBC', 'COAD']
 # Read this from Metadata!!
 image_type = "193x193Image"
-response = "TP53"
-response_var="tp53"
+folder = "Metastatic"
+response_var = "type"
 meta_data_response_column_index = 8
 predictor_column_index = 3
 
 # Model Params
 net = ConvNetSoftmax()
 LR = 0.0001
-checkpoint = torch.load("../src/classic_cnn/models/193_cancer_type_pred_f1_85.pt")
+checkpoint = torch.load("../src/classic_cnn/models/cancertype_f1_86_auc_98.pt")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=0.01, lr=LR, weight_decay=0.001)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -67,7 +66,7 @@ for type in cancer_types:
 
     type = str(type)
     # load the data
-    dataset = TCGAImageLoader("../data/{}_data/{}/meta_data.csv".format(response, image_type),
+    dataset = TCGAImageLoader("../data/{}_data/{}/meta_data.csv".format(folder, image_type),
                               filter_by_type=type, response_var=response_var, image_type=image_type,
                               response_column_index=meta_data_response_column_index,
                               predictor_column_index=predictor_column_index)
@@ -118,7 +117,7 @@ for type in cancer_types:
     plt.show()
 
     number_of_genes_returned = all_genes.shape[0]-1
-    folder = "CancerType"
+    folder_for_res = "CancerType"
     image = make_image("ID", 1, all_genes)
     exp_att = image.analyze_attribution(mean_exp_matrix, number_of_genes_returned, "Expression")
     mut_att = image.analyze_attribution(mean_mut_matrix, number_of_genes_returned, "Mutation")
@@ -127,5 +126,5 @@ for type in cancer_types:
     meth_att = image.analyze_attribution(mean_meth_matrix, number_of_genes_returned, "Methylation")
 
     total_df = pd.concat([exp_att,mut_att,gain_att,loss_att, meth_att])
-    total_df.to_csv("../Results/{}/{}_{}_{}_top_{}.csv".format(folder,type, image_type, response, number_of_genes_returned))
+    total_df.to_csv("../Results/{}/{}_{}_{}_top_{}.csv".format(folder_for_res,type, image_type, folder_for_res, number_of_genes_returned))
 

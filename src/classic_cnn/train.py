@@ -16,7 +16,7 @@ weight_decay = 1e-5
 epochs = 200
 start_of_lr_decrease = 120
 # Dataset Params
-folder = "TP53_data"
+folder = "Metastatic_data"
 image_type = "193x193Image"
 predictor_column = 3
 response_column = 8
