@@ -1,5 +1,7 @@
 import pickle
 
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler
 from torch.utils.data import Dataset
 import pandas as pd
 import numpy as np
@@ -9,7 +11,7 @@ from sklearn import preprocessing
 
 class TCGAImageLoader(Dataset):
 
-    def __init__(self, csv_file,  folder, image_type, predictor_column, response_column, filter_by_type=None, transform=None, ):
+    def __init__(self, csv_file,  folder, image_type, predictor_column, response_column, filter_by_type=None, transform=None ):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -37,10 +39,10 @@ class TCGAImageLoader(Dataset):
             idx = idx.tolist()
 
         with open("../../data/{}/{}/{}".format(self.folder,self.image_type,self.annotation.iloc[idx, self.predictor_column]), 'rb') as f:
-            image = pickle.load(f)
+            x = pickle.load(f)
             f.close()
-        y = np.array(self.annotation.iloc[idx, self.response_column], dtype="long")
+        y = np.array(self.annotation.iloc[idx, self.response_column], dtype="float")
         if self.transform:
-            image = self.transform(image)
+            x = self.transform(x)
 
-        return image,self.annotation.iloc[idx, 2], self.annotation.iloc[idx, 1], y
+        return x,self.annotation.iloc[idx, 2], self.annotation.iloc[idx, 1], y

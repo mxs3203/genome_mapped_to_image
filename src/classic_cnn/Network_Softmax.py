@@ -19,7 +19,7 @@ class ConvNetSoftmax(nn.Module):
         self.drop = nn.Dropout(0.59)
         self.fc2 = nn.Linear(2048, 2048)
         self.fc3 = nn.Linear(2048, 512)
-        self.fc4 = nn.Linear(512, 6)
+        self.fc4 = nn.Linear(512, 1)
         self.batchnorm2d = nn.BatchNorm2d(5)
         self.batchnorm1d = nn.BatchNorm1d(14112)
         self.batchnorm1d2 = nn.BatchNorm1d(2048)
@@ -30,6 +30,7 @@ class ConvNetSoftmax(nn.Module):
         xavier_uniform_(self.fc2.weight)
         xavier_uniform_(self.fc3.weight)
         xavier_uniform_(self.fc4.weight)
+
 
     def forward(self, x):
         x = self.batchnorm2d(x)
@@ -53,8 +54,8 @@ class ConvNetSoftmax(nn.Module):
 
     def predict(self, x):
         x = self.forward(x)
-        probs = torch.softmax(x, dim=1)
-        return probs
+        #probs = torch.softmax(x, dim=1)
+        return x
 
     def activations(self, x):
         # outputs activation this is not necessary just for fun
