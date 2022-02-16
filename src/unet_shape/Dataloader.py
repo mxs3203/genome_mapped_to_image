@@ -41,7 +41,7 @@ class TCGAImageLoader(Dataset):
         with open("../../data/{}/{}/{}".format(self.folder,self.image_type,self.annotation.iloc[idx, self.predictor_column]), 'rb') as f:
             x = pickle.load(f)
             f.close()
-        y = np.array(self.annotation.iloc[idx, self.response_column], dtype="long")
+        y = np.array(self.annotation.iloc[idx, self.response_column], dtype="float")
         if self.transform:
             x = self.transform(x)
 

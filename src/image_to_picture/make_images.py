@@ -2,10 +2,13 @@ import pandas as pd
 import numpy as np
 import pickle
 import time
+
+from tqdm import tqdm
+
 from utils import make_image, find_gains, find_losses, find_mutations, \
     find_gene_expression, find_methylation
 
-folder = 'TP53_data/Random193x193Image'
+folder = 'TP53_data/ShuffleImg'
 
 start_time = time.time()
 print("Reading clinical...")
@@ -16,8 +19,8 @@ ascat_loss = ascat.loc[ascat['loss'] == True]
 ascat_gain = ascat.loc[ascat['gain'] == True]
 print("Reading all gene definition...")
 all_genes = pd.read_csv("../../data/raw_data/all_genes_ordered_by_chr.csv")
-#all_genes = all_genes.sample(frac=1).reset_index(drop=True)
-#all_genes = all_genes[all_genes['name2'] != "TP53"]
+all_genes = all_genes.sample(frac=1).reset_index(drop=True) # Shuffle genes
+all_genes = all_genes[all_genes['name2'] != "TP53"]
 print("Reading Muts...")
 muts = pd.read_csv("../../data/raw_data/muts.csv")
 print("Reading gene exp...")
@@ -28,7 +31,7 @@ with open("../../data/raw_data/methylation_mean.dat", 'rb') as f:
     f.close()
 
 meta_data = pd.DataFrame(columns=['id', 'type', 'image_path', 'flatten_path','hilbert_path','tp53','met'])
-for index, row in clinical.iterrows():
+for index, row in tqdm(clinical.iterrows()):
     id = row['bcr_patient_barcode']
     type = row['type']
     met = row['metastatic_one_two_three']

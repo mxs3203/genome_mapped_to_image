@@ -1,7 +1,6 @@
 import itertools
 
 import numpy as np
-from hilbertcurve.hilbertcurve import HilbertCurve
 import pandas as pd
 
 
@@ -65,10 +64,11 @@ class Image:
         return tmp
 
     def transform_to_hilbert(self, iterations, dimens):
-        hilbert_curve = HilbertCurve(iterations, dimens)
-        vector = np.array(self.vector_of_all_features()*100, dtype="uint8")
-        points = hilbert_curve.points_from_distances(vector)
-        return np.array(points,dtype="float32")
+        # hilbert_curve = HilbertCurve(iterations, dimens)
+        # vector = np.array(self.vector_of_all_features()*100, dtype="uint8")
+        # points = hilbert_curve.points_from_distances(vector)
+        # return np.array(points,dtype="float32")
+        return None
 
     def make_image_matrces_by_chr(self):
 

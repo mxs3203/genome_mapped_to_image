@@ -6,38 +6,24 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import transforms
 from sklearn.metrics import classification_report
 # Training Params
-from src.FlattenFeatures.Network_Softmax_Flatten import NetSoftmax
-from src.classic_cnn.Dataloader import TCGAImageLoader
-from src.classic_cnn.Network_Softmax import ConvNetSoftmax
-import wandb
-
-
+from src.unet_shape.Dataloader import TCGAImageLoader
+from src.unet_shape.Unet_Softmax import MyUNet
 
 LR = 0.0001
-batch_size = 300
+batch_size = 100
 lr_decay = 1e-5
 weight_decay = 1e-5
 epochs = 200
 start_of_lr_decrease = 120
 # Dataset Params
 folder = "Metastatic_data"
-image_type = "SquereImg"
+image_type = "193x193Image"
 predictor_column = 3
-response_column = 7
+response_column = 8
 
-wandb.init(project="genome_as_image", entity="mxs3203", name="{}-{}".format(image_type,folder),reinit=True)
-wandb.config = {
-    "learning_rate": LR,
-    "epochs": epochs,
-    "batch_size": batch_size,
-    "folder": folder,
-    "image_type": image_type,
-    "weight_decay": weight_decay,
-    "lr_decay": lr_decay
-}
-
+writer = SummaryWriter(flush_secs=1)
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("/media/mateo/data1/genome_mapped_to_image/data/{}/{}/meta_data.csv".format(folder, image_type),
+dataset = TCGAImageLoader("../../data/{}/{}/meta_data.csv".format(folder, image_type),
                           folder, image_type, predictor_column, response_column, filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA'])
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -48,17 +34,17 @@ print("Test size: ", test_size)
 train_set, val_set = torch.utils.data.random_split(dataset, [train_size, test_size])
 trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=10, shuffle=True)
 valLoader = DataLoader(val_set, batch_size=batch_size, num_workers=10, shuffle=True)
-net = ConvNetSoftmax()
+net = MyUNet(n_channels=5)
 net.to(device)
 cost_func = torch.nn.CrossEntropyLoss()
-
-wandb.watch(net)
 
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=lr_decay, lr=LR, weight_decay=weight_decay)
 lambda1 = lambda epoch: 0.99 ** epoch
 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
+writer.add_text("Hyperparams",
+                "LR={}, batchSize={},lr_decay={},weight_decay={}".format(LR, batch_size, lr_decay, weight_decay))
+writer.add_text("Model", str(net.__dict__['_modules']))
 
-best_loss = float("+Inf")
 
 def acc(y_hat, y):
     probs = torch.softmax(y_hat, dim=1)
@@ -75,7 +61,7 @@ def batch_train(x, y, auc_type=None):
     y_probs = net.predict(x)
     loss = cost_func(y_hat, y)
     accuracy, pred_classes = acc(y_hat, y)
-    auc = roc_auc_score(y_true=y.cpu().detach(), y_score=y_probs.cpu().detach()[:,1], multi_class=auc_type)
+    auc = roc_auc_score(y_true=y.cpu().detach(), y_score=y_probs.cpu().detach(), multi_class=auc_type)
     report = classification_report(
         digits=6,
         y_true=y.cpu().detach().numpy(),
@@ -91,10 +77,10 @@ def batch_valid(x, y, auc_type=None):
     with torch.no_grad():
         net.eval()
         y_hat = net(x)
-        y_probs = net.predict(x)
+        y_probs=net.predict(x)
         loss = cost_func(y_hat, y)
         accuracy, pred_classes = acc(y_hat, y)
-        auc = roc_auc_score(y_true=y.cpu().detach(), y_score=y_probs.cpu().detach()[:,1], multi_class=auc_type)
+        auc = roc_auc_score(y_true=y.cpu().detach(), y_score=y_probs.cpu().detach(), multi_class=auc_type)
         report = classification_report(
             digits=6,
             y_true=y.cpu().detach().numpy(),
@@ -111,12 +97,12 @@ for ep in range(epochs):
     batch_train_f1,batch_val_auc, batch_train_auc,\
     batch_train_loss, batch_val_f1, batch_val_loss = [], [], [],[],[],[]
     for x, type, id, y_dat in trainLoader:
-        loss, acc_train, precision,recall,f1,train_auc = batch_train(x.cuda(), y_dat.cuda())
+        loss, acc_train, precision,recall,f1,train_auc = batch_train(x.cuda(), y_dat.cuda(), auc_type='ovr')
         batch_train_loss.append(loss)
         batch_train_f1.append(f1)
         batch_train_auc.append(train_auc)
     for x, type, id, y_dat in valLoader:
-        loss, acc_val,  precision,recall,f1,val_auc = batch_valid(x.cuda(), y_dat.cuda())
+        loss, acc_val,  precision,recall,f1,val_auc = batch_valid(x.cuda(), y_dat.cuda(), auc_type='ovr')
         batch_val_loss.append(loss)
         batch_val_f1.append(f1)
         batch_val_auc.append(val_auc)
@@ -127,18 +113,17 @@ for ep in range(epochs):
             np.mean(batch_train_loss),np.mean(batch_train_f1),np.mean(batch_train_auc),
             np.mean( batch_val_loss),np.mean(batch_val_f1),np.mean(batch_val_auc),
             optimizer.param_groups[0]["lr"]))
-
-    wandb.log({"Train/loss":  np.mean(batch_train_loss),
-               "Train/AUC": np.mean(batch_train_auc),
-               "Test/loss": np.mean(batch_val_loss),
-               "Test/AUC": np.mean(batch_val_auc)})
-
-    if (np.mean(batch_train_auc) >= 0.9 and np.mean(batch_val_auc) >= 0.9):
-        if np.mean(batch_val_loss) < best_loss:
-            torch.save({
-                'epoch': ep,
-                'model_state_dict': net.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': np.mean(batch_val_loss)
-            }, "checkpoints/Flat-{}-{}".format(image_type,folder))
-            wandb.save("checkpoints/Flat-{}-{}".format(image_type,folder))
+    writer.add_scalar('F1/train', np.mean(batch_train_f1), ep)
+    writer.add_scalar('F1/test', np.mean(batch_val_f1), ep)
+    writer.add_scalar('Loss/test', np.mean(batch_val_loss), ep)
+    writer.add_scalar('Loss/train', np.mean(batch_train_loss), ep)
+    writer.add_scalar('AUC/test', np.mean(batch_val_auc), ep)
+    writer.add_scalar('AUC/train', np.mean(batch_train_auc), ep)
+    if (np.mean(batch_val_auc) >= 0.78 and np.mean(batch_val_auc) >= 0.78):
+        torch.save({
+            'epoch': ep,
+            'model_state_dict': net.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': np.mean(batch_val_loss)
+        }, "checkpoints/ep_{}_model.pt".format(ep))
+    writer.flush()
