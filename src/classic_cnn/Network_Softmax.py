@@ -7,21 +7,21 @@ from torch.nn.init import xavier_uniform_
 class ConvNetSoftmax(nn.Module):
     def __init__(self):
         super(ConvNetSoftmax, self).__init__()
-        kernel_size = 3
+        kernel_size = 4
         kernels = 64
-        self.conv1 = nn.Conv2d(in_channels=5, out_channels=kernels, kernel_size=(kernel_size,kernel_size),
-                               stride=1,padding=0)
-        self.conv2 = nn.Conv2d(in_channels=kernels, out_channels=kernels, kernel_size=(kernel_size,kernel_size),
-                               stride=1, padding=0)
+        self.conv1 = nn.Conv2d(in_channels=5, out_channels=kernels, kernel_size=(kernel_size, kernel_size),
+                               stride=1, padding=1)
+        self.conv2 = nn.Conv2d(in_channels=kernels, out_channels=kernels, kernel_size=(kernel_size, kernel_size),
+                               stride=1, padding=1)
         self.pool1 = nn.MaxPool2d(kernel_size,kernel_size)
         self.pool2 = nn.MaxPool2d(kernel_size,kernel_size)
-        self.fc1 = nn.Linear(28224, 2048)
-        self.drop = nn.Dropout(0.4)
+        self.fc1 = nn.Linear(9216, 2048)
+        self.drop = nn.Dropout(0.5)
         self.fc2 = nn.Linear(2048, 2048)
         self.fc3 = nn.Linear(2048, 512)
         self.fc4 = nn.Linear(512, 2)
         self.batchnorm2d = nn.BatchNorm2d(5)
-        self.batchnorm1d = nn.BatchNorm1d(28224)
+        self.batchnorm1d = nn.BatchNorm1d(9216)
         self.batchnorm1d2 = nn.BatchNorm1d(2048)
         self.batchnorm2d2 = nn.BatchNorm2d(kernels)
         xavier_uniform_(self.conv1.weight)

@@ -6,6 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import transforms
 from sklearn.metrics import classification_report
 # Training Params
+from src.AutoEncoder.AE import AE
 from src.FlattenFeatures.Network_Softmax_Flatten import NetSoftmax
 from src.classic_cnn.Dataloader import TCGAImageLoader
 from src.classic_cnn.Network_Softmax import ConvNetSoftmax
@@ -13,17 +14,17 @@ import wandb
 
 
 
-LR = 0.0001
-batch_size = 300
-lr_decay = 1e-5
-weight_decay = 1e-5
-epochs = 200
-start_of_lr_decrease = 120
+LR = 9.900000000000001e-05
+batch_size = 256
+lr_decay = 1e-5 # 1e-5
+weight_decay = 1e-5 # 1e-5
+epochs = 150
+start_of_lr_decrease = 60
 # Dataset Params
-folder = "Metastatic_data"
+folder = "TP53_data"
 image_type = "SquereImg"
 predictor_column = 3
-response_column = 7
+response_column = 7 # 5=met,6=wgii,7=tp53
 
 wandb.init(project="genome_as_image", entity="mxs3203", name="{}-{}".format(image_type,folder),reinit=True)
 wandb.config = {
@@ -37,7 +38,7 @@ wandb.config = {
 }
 
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("/media/mateo/data1/genome_mapped_to_image/data/{}/{}/meta_data.csv".format(folder, image_type),
+dataset = TCGAImageLoader("/media/mateo/data1/genome_mapped_to_image/data/main_meta_data.csv",
                           folder, image_type, predictor_column, response_column, filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA'])
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -48,12 +49,12 @@ print("Test size: ", test_size)
 train_set, val_set = torch.utils.data.random_split(dataset, [train_size, test_size])
 trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=10, shuffle=True)
 valLoader = DataLoader(val_set, batch_size=batch_size, num_workers=10, shuffle=True)
-net = ConvNetSoftmax()
+net = AE()
 net.to(device)
 cost_func = torch.nn.CrossEntropyLoss()
 
 wandb.watch(net)
-
+wandb.save("/media/mateo/data1/genome_mapped_to_image/src/AutoEncoder/AE.py")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=lr_decay, lr=LR, weight_decay=weight_decay)
 lambda1 = lambda epoch: 0.99 ** epoch
 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
@@ -109,13 +110,13 @@ train_losses = []
 val_losses = []
 for ep in range(epochs):
     batch_train_f1,batch_val_auc, batch_train_auc,\
-    batch_train_loss, batch_val_f1, batch_val_loss = [], [], [],[],[],[]
-    for x, type, id, y_dat in trainLoader:
+    batch_train_loss, batch_val_f1, batch_val_loss = [],[],[],[],[],[]
+    for x, y_dat in trainLoader:
         loss, acc_train, precision,recall,f1,train_auc = batch_train(x.cuda(), y_dat.cuda())
         batch_train_loss.append(loss)
         batch_train_f1.append(f1)
         batch_train_auc.append(train_auc)
-    for x, type, id, y_dat in valLoader:
+    for x, y_dat in valLoader:
         loss, acc_val,  precision,recall,f1,val_auc = batch_valid(x.cuda(), y_dat.cuda())
         batch_val_loss.append(loss)
         batch_val_f1.append(f1)
@@ -133,12 +134,13 @@ for ep in range(epochs):
                "Test/loss": np.mean(batch_val_loss),
                "Test/AUC": np.mean(batch_val_auc)})
 
-    if (np.mean(batch_train_auc) >= 0.9 and np.mean(batch_val_auc) >= 0.9):
+    if (np.mean(batch_train_auc) >= 0.85 and np.mean(batch_val_auc) >= 0.85):
         if np.mean(batch_val_loss) < best_loss:
+            best_loss = np.mean(batch_val_loss)
             torch.save({
                 'epoch': ep,
                 'model_state_dict': net.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': np.mean(batch_val_loss)
-            }, "checkpoints/Flat-{}-{}".format(image_type,folder))
-            wandb.save("checkpoints/Flat-{}-{}".format(image_type,folder))
+            }, "checkpoints/{}-{}".format(image_type,folder))
+            wandb.save("checkpoints/{}-{}.pb".format(image_type,folder))

@@ -1,15 +1,22 @@
+import argparse
 import pickle
 import time
 
 import numpy as np
 import pandas as pd
 from utils import make_image_chr, find_mutations, find_losses, find_gains, \
-    find_gene_expression
+    find_gene_expression, find_methylation
 
-from TCGA_GenomeImage.src.image_to_picture.utils import find_methylation
+parser = argparse.ArgumentParser(description='')
+parser.add_argument('--output',type=str, default='TP53_data/SquereImg')
+parser.add_argument('--tp53', type=int, default='0')
+parser.add_argument('--shuffle', type=int, default='0')
 
-
-folder = 'TP53_data/Random22x3760Image/'
+args = parser.parse_args()
+args.tp53 = bool(int(args.tp53))
+args.shuffle = bool(int(args.shuffle))
+folder = args.output #'TP53_data/ShuffleImg'
+print(args)
 
 start_time = time.time()
 print("Reading clinical...")
@@ -20,8 +27,11 @@ ascat_loss = ascat.loc[ascat['loss'] == True]
 ascat_gain = ascat.loc[ascat['gain'] == True]
 print("Reading all gene definition...")
 all_genes = pd.read_csv("../../data/raw_data/all_genes_ordered_by_chr.csv")
-all_genes = all_genes.sample(frac=1).reset_index(drop=True)
-all_genes = all_genes[all_genes['name2'] != "TP53"]
+if args.shuffle:
+    print("Shuffling gene list")
+    all_genes = all_genes.sample(frac=1).reset_index(drop=True) # Shuffle genes
+if args.tp53:
+    all_genes = all_genes[all_genes['name2'] != "TP53"]
 print("Reading Muts...")
 muts = pd.read_csv("../../data/raw_data/muts.csv")
 print("Reading gene exp...")
@@ -31,7 +41,8 @@ with open("../../data/raw_data/methylation_mean.dat", 'rb') as f:
     methy = pickle.load(f)
     f.close()
 
-meta_data = pd.DataFrame(columns=['id', 'type', 'image_path', 'flatten_path', 'hilbert_path', 'tp53','met'])
+
+meta_data = pd.DataFrame(columns=['id', 'type', 'image_path', 'flatten_path','tp53','met'])
 for index, row in clinical.iterrows():
     id = row['bcr_patient_barcode']
     type = row['type']
@@ -42,13 +53,15 @@ for index, row in clinical.iterrows():
         tp53 = 1
     else:
         tp53 = 0
-    print(id, "->", tp53)
+    if args.tp53:
+        print("Filtering tp53 from data")
+        tmp_mut = tmp_mut[tmp_mut['Hugo_Symbol'] != "TP53"]
     print(tmp_mut.shape)
     print("Filtering TP53 muts from data")
     tmp_mut = tmp_mut[tmp_mut['Hugo_Symbol'] != "TP53"]
     print(tmp_mut.shape)
     print(id, "->", met)
-    if tp53 in [0, 1]:
+    if (args.tp53 and tp53 in [0, 1]) or (not args.tp53 and met in [0,1]):
         print("\tMaking image")
         image = make_image_chr(id, met, all_genes)
         print("\tMapping losses to genes")
@@ -63,10 +76,10 @@ for index, row in clinical.iterrows():
                                      np.max(np.array(gene_exp.select_dtypes(include=np.number))))
         print("\tMapping methylation to genes")
         image = find_methylation(id, image, methy)
-        print("\tStoring intermediate results in .dat binary file...")
-        with open("../../data/{}/dictionary_images/{}.dat".format(folder, id), 'wb') as f:
-            pickle.dump(image, f)
-            f.close()
+        #print("\tStoring intermediate results in .dat binary file...")
+        # with open("../../data/{}/dictionary_images/{}.dat".format(folder, id), 'wb') as f:
+        #     pickle.dump(image, f)
+        #     f.close()
         image.make_image_matrces_by_chr()
         n_dim_image = image.make_n_dim_chr_image()
         print("\tStoring n dim image in .dat file")
@@ -78,7 +91,6 @@ for index, row in clinical.iterrows():
                                       'type': str(type),
                                       'image_path': str("n_dim_images/{}.dat".format(id)),
                                       'flatten_path': str("flatten_vectors/{}.dat".format(id)),
-                                      'hilbert_path': str("hilbert_transforms/no_exist.dat"),
                                       'tp53': int(tp53),
                                       'met': int(met)
                                       },

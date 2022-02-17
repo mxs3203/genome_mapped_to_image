@@ -15,21 +15,21 @@ class UnFlatten(nn.Module):
 
 
 class ConvVAE(nn.Module):
-    def __init__(self, image_channels=5, h_dim=512, z_dim=1024):
+    def __init__(self, h_dim, z_dim,  image_channels=5):
         super(ConvVAE, self).__init__()
         self.z_size = z_dim
         self.encoder = nn.Sequential(
-            # 512/4=128, (B, 64, 128, 128)
-            nn.Conv2d(image_channels, 64, kernel_size=4, stride=4),
+            #  (B, 8, 197+3, 197+3)
+            nn.Conv2d(image_channels, 16, kernel_size=2, stride=2, padding=3),
             nn.ReLU(),
-            # 128/4=32 (B, 80, 32, 32)
-            nn.Conv2d(64, 80, kernel_size=4,stride=4),
+            #  (B, 8, 100, 100)
+            nn.Conv2d(16, 32, kernel_size=4, stride=4),
             nn.ReLU(),
-            # 32/4=8 (B, 100, 8, 8)
-            nn.Conv2d(80, 100, kernel_size=4,stride=4),
+            #  (B, 32, 25, 25)
+            nn.Conv2d(32, 64, kernel_size=5,stride=5),
             nn.ReLU(),
-            # 8/8=1 (B, 120, 1, 1)
-            nn.Conv2d(100, h_dim, kernel_size=8,stride=8),
+            #  (B, 64, 5, 5)
+            nn.Conv2d(64, h_dim, kernel_size=5,stride=5),
             nn.ReLU(),
             #nn.Dropout2d(0.1),
             nn.Flatten(),
@@ -42,13 +42,13 @@ class ConvVAE(nn.Module):
         self.decoder = nn.Sequential(
             nn.Linear(z_dim, h_dim), nn.ReLU(),
             UnFlatten(-1, h_dim, 1, 1),
-            nn.ConvTranspose2d(h_dim, 100, kernel_size=8,stride=8),
+            nn.ConvTranspose2d(h_dim, 64, kernel_size=5, stride=5),
             nn.ReLU(),
-            nn.ConvTranspose2d(100, 80, kernel_size=4,stride=4),
+            nn.ConvTranspose2d(64, 32, kernel_size=5,stride=5),
             nn.ReLU(),
-            nn.ConvTranspose2d(80, 64, kernel_size=4,stride=4),
+            nn.ConvTranspose2d(32, 16, kernel_size=4,stride=4),
             nn.ReLU(),
-            nn.ConvTranspose2d(64, image_channels, kernel_size=4, stride=4),
+            nn.ConvTranspose2d(16, image_channels, kernel_size=2, stride=2, padding=2, output_padding=1),
             nn.Sigmoid(),
         )
 

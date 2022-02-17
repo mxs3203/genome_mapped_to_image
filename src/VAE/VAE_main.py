@@ -7,32 +7,58 @@ from sklearn.manifold import TSNE
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
-from torch.utils.tensorboard import SummaryWriter
+from torchvision.transforms import ToTensor, Pad
 
-from VAE_CT.CT_DataLoader import CT_DataLoader
-from VAE_CT.VAEModel import ConvVAE
+from src.VAE.VAEModel import ConvVAE
+from src.classic_cnn.Dataloader import TCGAImageLoader
+from torch.nn.functional import pad
+import wandb
+
+
+
+lr = 0.00001
+batch_size = 600
+lr_decay = 1e-5
+weight_decay = 1e-5
+epochs = 1000
+start_of_lr_decrease = 600
+# Dataset Params
+folder = "Metastatic_data"
+image_type = "SquereImg"
+predictor_column = 3
+response_column = 7
+torch.multiprocessing.set_start_method('spawn', force=True)
+
+wandb.init(project="genome_as_image", entity="mxs3203", name="VAE_{}-{}".format(image_type,folder),reinit=True)
+wandb.config = {
+    "learning_rate": lr,
+    "epochs": epochs,
+    "batch_size": batch_size,
+    "folder": folder,
+    "image_type": image_type,
+    "weight_decay": weight_decay,
+    "lr_decay": lr_decay
+}
+
 
 matplotlib.style.use('ggplot')
 
 tsne = TSNE(n_components=2, verbose=0, random_state=123)
 
-transform = transforms.Compose([
-    transforms.ToTensor()
+my_transforms = transforms.Compose([
 ])
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-writer = SummaryWriter(flush_secs=1)
 
 # set the learning parameters
-lr = 0.0001
-epochs = 400
-batch_size = 12
-L = 512
-model = ConvVAE(z_dim=L).to(device)
+L = 1024
+H = 1024
+model = ConvVAE(z_dim=L, h_dim=H).to(device)
 optimizer = optim.Adam(model.parameters(), lr=lr)
 criterion = torch.nn.BCELoss(reduction='sum')
 
-dataset = CT_DataLoader("../data/train/", transform)
+dataset = TCGAImageLoader("/media/mateo/data1/genome_mapped_to_image/data/{}/{}/meta_data.csv".format(folder, image_type),
+                          folder, image_type, predictor_column, response_column, filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA'])
 torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
 train_size = int(len(dataset) * 0.75)
@@ -40,12 +66,8 @@ test_size = len(dataset) - train_size
 print("Train size: ", train_size)
 print("Test size: ", test_size)
 train_set, val_set = torch.utils.data.random_split(dataset, [train_size, test_size])
-trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=1, shuffle=True)
-valLoader = DataLoader(val_set, batch_size=batch_size, num_workers=1, shuffle=True)
-
-writer.add_text("Hyperparams",
-                "LR={}, batchSize={}".format(lr, batch_size))
-writer.add_text("Model", str(model.__dict__['_modules']))
+trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=0, shuffle=True)
+valLoader = DataLoader(val_set, batch_size=batch_size, num_workers=0, shuffle=True)
 
 
 def gaussian_kernel(a, b):
@@ -77,14 +99,14 @@ def train(ep):
     model.train()
     running_loss = []
     running_kld = []
-    for images in trainLoader:
+    for images, type, id, y_dat in trainLoader:
         images = images.to(device)
         optimizer.zero_grad()
         recon_images, mu, logvar = model(images)
-        loss, kld = loss_function(recon_images, images, mu)
-        loss = loss + kld
-        # loss = criterion(recon_images, images)
-        # loss,kld = final_loss(loss,mu, logvar)
+        # loss, kld = loss_function(recon_images, images, mu)
+        # loss = loss + kld
+        loss = criterion(recon_images, images)
+        loss,kld = final_loss(loss,mu, logvar)
         loss.backward()
         optimizer.step()
         running_loss.append(loss.cpu().detach())
@@ -95,9 +117,8 @@ def train(ep):
                                                                            np.mean(running_loss),
                                                                            np.mean(running_kld))
     print(to_print)
-    writer.add_scalar('Loss/Train', np.mean(running_loss), ep)
-    writer.add_scalar('KLD/Train', np.mean(running_kld), ep)
-    return np.mean(running_loss)
+
+    return np.mean(running_loss), np.mean(running_kld)
 
 
 def validate(ep):
@@ -106,13 +127,13 @@ def validate(ep):
     running_kld = []
     with torch.no_grad():
         model.eval()
-        for images in valLoader:
+        for images, type, id, y_dat in valLoader:
             images = images.to(device)
             recon_images, mu, logvar = model(images)
-            loss, kld = loss_function(recon_images, images, mu)
-            loss = loss + kld
-            # loss = criterion(recon_images, images)
-            # loss, kld = final_loss(loss, mu, logvar)
+            # loss, kld = loss_function(recon_images, images, mu)
+            # loss = loss + kld
+            loss = criterion(recon_images, images)
+            loss, kld = final_loss(loss, mu, logvar)
 
             running_loss.append(loss.cpu().detach())
             running_kld.append(kld.cpu().detach())
@@ -120,53 +141,64 @@ def validate(ep):
             np.mean(running_loss),
             np.mean(running_kld))
         print(to_print)
-        writer.add_scalar('Loss/Valid', np.mean(running_loss), ep)
-        writer.add_scalar('KLD/Valid', np.mean(running_kld), ep)
-    return recon_images[0, :, :, :]
+
+    return recon_images[0, :, :, :], np.mean(running_loss), np.mean(running_kld)
 
 
 def plot_latent(ep):
     print("\tCalculating TSNE of validation data latent vectors")
     total = pandas.DataFrame()
-    for x in valLoader:
+    Y = []
+    for x, type, id, y_dat in valLoader:
         x, z, z_mean, z_log_var = model.encode_img(x.to(device))
         z = z.to('cpu').detach().numpy()
+        Y = np.append(Y, y_dat.to('cpu').detach().numpy())
         z = pandas.DataFrame(z)
         total = pandas.concat([total, z], ignore_index=True)
 
     tsne_results = tsne.fit_transform(total)
     tsne_results = pandas.DataFrame(tsne_results, columns=['tsne1', 'tsne2'])
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'])
+    tsne_results['y'] = Y
+    cdict = {0: 'noTP53', 1: 'TP53'}
+    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=tsne_results['y'])
+    plt.legend(loc='lower left', title='TP53')
     plt.title("TSNE of Validation DF latent vectors")
+    wandb.log({"tsne": plt})
     # writer.add_figure('Valid/tsne', plt, ep)
-    plt.savefig("Res/tsne{}.png".format(ep))
-    plt.show()
+    #plt.savefig("Res/tsne{}.png".format(ep))
+    plt.close()
+    #plt.show()
 
 
-def visualize_recon(randomimg, ep):
-    num_row = 10
-    num_col = 6  # plot images
-    fig, axes = plt.subplots(num_row, num_col, figsize=(2 * num_col, 2 * num_row))
-    for i in range(60):
+def visualize_recon(randomimg, ep, channels=5):
+    num_row = 2
+    num_col = 3 # plot images
+    fig, axes = plt.subplots(num_row, num_col)
+    for i in range(channels):
         ax = axes[i // num_col, i % num_col]
         im = np.array(randomimg[i, :, :])
         ax.imshow(im, cmap='gray')
     plt.tight_layout()
     # writer.add_figure('Valid/reconstruction', plt.show(), ep)
-    plt.savefig("Res/reconstructions{}.png".format(ep))
-    plt.show()
+    #plt.savefig("Res/reconstructions{}.png".format(ep))
+    wandb.log({"reconstruction": plt})
+    plt.close()
+    #plt.show()
 
 
 loss = []
 for epoch in range(epochs):
-    train_loss = train(epoch)
+    train_loss, train_kld = train(epoch)
     loss.append(train_loss)
-    recon_image = validate(epoch)
-    if epoch % 5 == 1:
+    recon_image, val_loss, val_kld = validate(epoch)
+    if epoch % 10 == 1:
         visualize_recon(recon_image.cpu().detach(), epoch)
         plot_latent(epoch)
-        torch.save(model.state_dict(), "../saved_models/vae_model_ep_{}.pt".format(epoch))
-
+        #torch.save(model.state_dict(), "../saved_models/vae_model_ep_{}.pt".format(epoch))
+    wandb.log({"Train/loss":train_loss,
+               "Train/KLD": train_kld,
+               "Test/loss":val_loss,
+               "Test/KLD": val_kld})
 torch.save(model.state_dict(), "../saved_models/vae_model_last.pt")
 plt.plot(range(epochs), loss)
 plt.title("Total Loss")
