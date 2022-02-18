@@ -9,38 +9,46 @@ class AE(nn.Module):
         super(AE, self).__init__()
         self.encoder = nn.Sequential(
             nn.BatchNorm2d(image_channels),
-            nn.Conv2d(image_channels, 16, kernel_size=2, stride=2, padding=3), # 512/4=128, (B, 64, 128, 128)
+            nn.Conv2d(image_channels, 16, kernel_size=(2, 5), stride=(2, 5)), # 752, 12
             nn.ReLU(),
-            nn.Conv2d(16, 32, kernel_size=4, stride=4), # 128/4=32 (B, 80, 32, 32)
+            nn.Conv2d(16, 32, kernel_size=(2, 8), stride=(2, 8)), # 94, 6
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=5,stride=5), #32/4=8 (B, 100, 8, 8)
+            nn.Conv2d(32, 64, kernel_size=(2, 2), stride=(2, 2)), # 47, 3
             nn.ReLU(),
-            nn.Conv2d(64, 128, kernel_size=5,stride=5), #8/8=1 (B, 120, 1, 1)
+            nn.Conv2d(64, 128, kernel_size=(1, 4), stride=(1, 4), padding=1), # 12,3
             nn.ReLU(),
-            UnFlatten(-1, 128, 1, 1),
+            nn.Conv2d(128, 200, kernel_size=(3, 3), stride=(3, 3)),  # 12,3
+            nn.ReLU(),
+            nn.Conv2d(200, 256, kernel_size=(1, 4), stride=(1, 4)),  # 4,3
+            nn.ReLU(),
+            UnFlatten(-1, 256, 1, 1),
         )
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(128, 64, kernel_size=5,stride=5),
+            nn.ConvTranspose2d(256, 200, kernel_size=(1, 4), stride=(1, 4)),
             nn.ReLU(),
-            nn.ConvTranspose2d(64, 32, kernel_size=5,stride=5),
+            nn.ConvTranspose2d(200, 128,  kernel_size=(3, 3), stride=(3, 3)),
             nn.ReLU(),
-            nn.ConvTranspose2d(32, 16, kernel_size=4,stride=4),
+            nn.ConvTranspose2d(128, 64, kernel_size=(1,4),stride=(1,4)),
             nn.ReLU(),
-            nn.ConvTranspose2d(16, image_channels, kernel_size=2, stride=2, padding=2, output_padding=1),
+            nn.ConvTranspose2d(64, 32,  kernel_size=(2,2),stride=(2,2)),
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, 16, kernel_size=(2,8), stride=(2,8)),
+            nn.ReLU(),
+            nn.ConvTranspose2d(16, image_channels, kernel_size=(2,5), stride=(2,5)),
             nn.ReLU()
         )
 
         self.extractor = nn.Sequential(
             nn.BatchNorm2d(image_channels),
-            nn.Conv2d(image_channels, 64, kernel_size=(3, 3), stride=1, padding=1), nn.ReLU(), nn.MaxPool2d((3,3)),
-            nn.Conv2d(64, 128, kernel_size=(3, 3), stride=1), nn.ReLU(), nn.MaxPool2d((3, 3)),
+            nn.Conv2d(image_channels, 64, kernel_size=(2, 5), stride=1), nn.ReLU(), nn.MaxPool2d((2, 5)),
+            nn.Conv2d(64, 128, kernel_size=(2, 8), stride=1), nn.ReLU(), nn.MaxPool2d((2, 4)),
             nn.Dropout2d(0.35),
-            nn.Conv2d(128, 128, kernel_size=(3, 3), stride=1), nn.ReLU(), nn.MaxPool2d((3, 3)),
-            nn.Conv2d(128, 128, kernel_size=(3, 3), stride=1), nn.ReLU(),
-            nn.BatchNorm2d(128),
+            nn.Conv2d(128, 128, kernel_size=(2, 4), stride=1), nn.ReLU(), nn.MaxPool2d((2, 4)),
+            nn.Conv2d(128, 128, kernel_size=(2, 4), stride=1), nn.ReLU(),
+            nn.BatchNorm2d(128)
         )
         self.predictor = nn.Sequential(
-            nn.Linear(2176, 1024), nn.ReLU(),
+            nn.Linear(5760, 1024), nn.ReLU(),
             nn.Dropout(0.25),
             nn.Linear(1024, 512), nn.ReLU(),
             nn.Linear(512, 2)

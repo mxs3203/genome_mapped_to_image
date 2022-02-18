@@ -15,15 +15,15 @@ import wandb
 
 
 LR = 9.900000000000001e-05
-batch_size = 256
+batch_size = 128
 lr_decay = 1e-5 # 1e-5
 weight_decay = 1e-5 # 1e-5
 epochs = 150
 start_of_lr_decrease = 60
 # Dataset Params
 folder = "TP53_data"
-image_type = "SquereImg"
-predictor_column = 3
+image_type = "ChrImg"
+predictor_column = 3 # 3=n_dim_img,4=flatten
 response_column = 7 # 5=met,6=wgii,7=tp53
 
 wandb.init(project="genome_as_image", entity="mxs3203", name="{}-{}".format(image_type,folder),reinit=True)
