@@ -1,4 +1,3 @@
-from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -8,8 +7,8 @@ from PIL import Image
 from captum.attr import IntegratedGradients
 from torch.utils.data import DataLoader
 
-from inference.Dataloader import TCGAImageLoader
-from src.classic_cnn.Network_Softmax import ConvNetSoftmax
+from src.AutoEncoder.AE_Squere import AE
+from src.classic_cnn.Dataloader import TCGAImageLoader
 from src.image_to_picture.utils import make_image
 
 
@@ -42,18 +41,17 @@ def show_data(x, y):
 all_genes = pd.read_csv("../data/raw_data/all_genes_ordered_by_chr.csv")
 
 # Script Params
-cancer_types = [ 'OV','COAD', 'UCEC', 'KIRC','STAD', 'BLCA']# ['KIRC','STAD', 'UCEC','BLCA', 'HNSC', 'OV', 'DLBC', 'COAD']
+cancer_types = ['DLBC', 'UCEC','STAD', 'OV','COAD', 'KIRC', 'BLCA'] # ['KIRC','STAD', 'UCEC','BLCA', , 'OV', 'DLBC', 'COAD']
 # Read this from Metadata!!
-image_type = "193x193Image"
-folder = "Metastatic"
-response_var = "type"
-meta_data_response_column_index = 8
-predictor_column_index = 3
+image_type = "SquereImg"
+folder = "Metastatic_data"
+predictor_column = 3 # 3=n_dim_img,4=flatten
+response_column = 7 # 5=met,6=wgii,7=tp53
 
 # Model Params
-net = ConvNetSoftmax()
+net = AE()
 LR = 0.0001
-checkpoint = torch.load("../src/classic_cnn/models/cancertype_f1_86_auc_98.pt")
+checkpoint = torch.load("../src/classic_cnn/checkpoints/SquereImg-TP53_data")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=0.01, lr=LR, weight_decay=0.001)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -66,10 +64,9 @@ for type in cancer_types:
 
     type = str(type)
     # load the data
-    dataset = TCGAImageLoader("../data/{}_data/{}/meta_data.csv".format(folder, image_type),
-                              filter_by_type=type, response_var=response_var, image_type=image_type,
-                              response_column_index=meta_data_response_column_index,
-                              predictor_column_index=predictor_column_index)
+    dataset = TCGAImageLoader("/media/mateo/data1/genome_mapped_to_image/data/main_meta_data.csv",
+                              folder, image_type, predictor_column, response_column,
+                              filter_by_type=[type])
     trainLoader = DataLoader(dataset, batch_size=1, num_workers=10, shuffle=False)
     print(type, "Samples: ", len(trainLoader))
     # prepare empty lists
@@ -80,7 +77,7 @@ for type in cancer_types:
     heatmaps_exp = []
 
     # iterate sample by samples
-    for x, type, id, y_dat in trainLoader:
+    for x, y_dat in trainLoader:
         #print("ID: ", id)
         #print("\t",d)
         #show_data(x, met_1_2_3)
@@ -97,27 +94,27 @@ for type in cancer_types:
     heatmaps_loss = np.array(heatmaps_loss)
     mean_loss_matrix = heatmaps_loss.mean(axis=0)
     ax = sns.heatmap(mean_loss_matrix, cmap="YlGnBu")
-    plt.show()
+    #plt.show()
     heatmaps_gains = np.array(heatmaps_gains)
     mean_gain_matrix = heatmaps_gains.mean(axis=0)
     ax = sns.heatmap(mean_gain_matrix, cmap="YlGnBu")
-    plt.show()
+    #plt.show()
     heatmaps_mut = np.array(heatmaps_mut)
     mean_mut_matrix = heatmaps_mut.mean(axis=0)
     ax = sns.heatmap(mean_mut_matrix, cmap="YlGnBu")
-    plt.show()
+    #plt.show()
 
     heatmaps_exp = np.array(heatmaps_exp)
     mean_exp_matrix = heatmaps_exp.mean(axis=0)
     ax = sns.heatmap(mean_exp_matrix, cmap="YlGnBu")
-    plt.show()
+    #plt.show()
     heatmaps_meth = np.array(heatmaps_meth)
     mean_meth_matrix = heatmaps_meth.mean(axis=0)
     ax = sns.heatmap(mean_meth_matrix, cmap="YlGnBu")
-    plt.show()
+    #plt.show()
 
     number_of_genes_returned = all_genes.shape[0]-1
-    folder_for_res = "CancerType"
+    folder_for_res = "TP53"
     image = make_image("ID", 1, all_genes)
     exp_att = image.analyze_attribution(mean_exp_matrix, number_of_genes_returned, "Expression")
     mut_att = image.analyze_attribution(mean_mut_matrix, number_of_genes_returned, "Mutation")

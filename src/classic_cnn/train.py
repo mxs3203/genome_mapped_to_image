@@ -6,10 +6,8 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import transforms
 from sklearn.metrics import classification_report
 # Training Params
-from src.AutoEncoder.AE import AE
-from src.FlattenFeatures.Network_Softmax_Flatten import NetSoftmax
+from src.AutoEncoder.AE_Squere import AE
 from src.classic_cnn.Dataloader import TCGAImageLoader
-from src.classic_cnn.Network_Softmax import ConvNetSoftmax
 import wandb
 
 
@@ -21,8 +19,8 @@ weight_decay = 1e-5 # 1e-5
 epochs = 150
 start_of_lr_decrease = 60
 # Dataset Params
-folder = "Metastatic_data"
-image_type = "ChrImg"
+folder = "TP53_data"
+image_type = "SquereImg"
 predictor_column = 3 # 3=n_dim_img,4=flatten
 response_column = 7 # 5=met,6=wgii,7=tp53
 
@@ -134,7 +132,7 @@ for ep in range(epochs):
                "Test/loss": np.mean(batch_val_loss),
                "Test/AUC": np.mean(batch_val_auc)})
 
-    if (np.mean(batch_train_auc) >= 0.85 and np.mean(batch_val_auc) >= 0.85):
+    if (np.mean(batch_train_auc) >= 0.80 and np.mean(batch_val_auc) >= 0.80):
         if np.mean(batch_val_loss) < best_loss:
             best_loss = np.mean(batch_val_loss)
             torch.save({
