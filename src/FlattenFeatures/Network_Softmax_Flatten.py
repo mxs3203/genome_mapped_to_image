@@ -8,7 +8,7 @@ class NetSoftmax(nn.Module):
     def __init__(self):
         super(NetSoftmax, self).__init__()
         self.fc1 = nn.Linear(194045, 2048)
-        self.drop = nn.Dropout(0.01)
+        self.drop = nn.Dropout(0.5)
         self.fc2 = nn.Linear(2048, 2048)
         self.fc3 = nn.Linear(2048, 2048)
         self.fc4 = nn.Linear(2048, 2)

@@ -51,7 +51,7 @@ class AE(nn.Module):
             nn.Linear(17664, 1024), nn.ReLU(),
             nn.Dropout(0.05),
             nn.Linear(1024, 512), nn.ReLU(),
-            nn.Linear(512, 2)
+            nn.Linear(512, 1)
         )
 
     def predict(self, x):
@@ -69,6 +69,6 @@ class AE(nn.Module):
         x = self.decoder(x_enc)
         x = self.extractor(x)
         x = x.view(x.size(0), -1)
-        # x = torch.cat([x, x_enc_flat], dim = 1)
+        x = torch.cat([x, x_enc_flat], dim = 1)
         x = self.predictor(x)
         return x

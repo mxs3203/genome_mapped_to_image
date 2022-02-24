@@ -34,14 +34,14 @@ class AE(nn.Module):
             nn.BatchNorm2d(image_channels),
             nn.Conv2d(image_channels, 64, kernel_size=(3, 3), stride=1, padding=1), nn.ReLU(), nn.MaxPool2d((3,3)),
             nn.Conv2d(64, 128, kernel_size=(3, 3), stride=1), nn.ReLU(), nn.MaxPool2d((3, 3)),
-            nn.Dropout2d(0.35),
+            nn.Dropout2d(0.45),
             nn.Conv2d(128, 128, kernel_size=(3, 3), stride=1), nn.ReLU(), nn.MaxPool2d((3, 3)),
             nn.Conv2d(128, 128, kernel_size=(3, 3), stride=1), nn.ReLU(),
             nn.BatchNorm2d(128),
         )
         self.predictor = nn.Sequential(
             nn.Linear(2176, 1024), nn.ReLU(),
-            nn.Dropout(0.27),
+            nn.Dropout(0.47),
             nn.Linear(1024, 512), nn.ReLU(),
             nn.Linear(512, 2)
         )

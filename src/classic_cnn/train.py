@@ -7,6 +7,7 @@ from torchvision.transforms import transforms
 from sklearn.metrics import classification_report
 # Training Params
 from src.AutoEncoder.AE import AE
+from src.FlattenFeatures.Network_Softmax_Flatten import NetSoftmax
 from src.classic_cnn.Dataloader import TCGAImageLoader
 import wandb
 
@@ -14,15 +15,15 @@ import wandb
 
 LR = 9.900000000000001e-05
 batch_size = 128
-lr_decay = 1e-5 # 1e-5
-weight_decay = 1e-5 # 1e-5
+lr_decay = 1e-1 # 1e-5
+weight_decay = 1e-1 # 1e-5
 epochs = 150
 start_of_lr_decrease = 60
 # Dataset Params
-folder = "Metastatic_data"
-image_type = "ChrImg"
-predictor_column = 3 # 3=n_dim_img,4=flatten
-response_column = 5 # 5=met,6=wgii,7=tp53
+folder = "TP53_data"
+image_type = "SquereImg"
+predictor_column = 4 # 3=n_dim_img,4=flatten
+response_column = 7 # 5=met,6=wgii,7=tp53
 
 wandb.init(project="genome_as_image", entity="mxs3203", name="{}-{}".format(image_type,folder),reinit=True)
 wandb.config = {
@@ -47,12 +48,12 @@ print("Test size: ", test_size)
 train_set, val_set = torch.utils.data.random_split(dataset, [train_size, test_size])
 trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=10, shuffle=True)
 valLoader = DataLoader(val_set, batch_size=batch_size, num_workers=10, shuffle=True)
-net = AE()
+net = NetSoftmax()
 net.to(device)
 cost_func = torch.nn.CrossEntropyLoss()
 
 wandb.watch(net)
-wandb.save("/media/mateo/data1/genome_mapped_to_image/src/AutoEncoder/AE.py")
+wandb.save("/media/mateo/data1/genome_mapped_to_image/src/FlattenFeatures/Network_Softmax_Flatten.py")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=lr_decay, lr=LR, weight_decay=weight_decay)
 lambda1 = lambda epoch: 0.99 ** epoch
 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
@@ -132,7 +133,7 @@ for ep in range(epochs):
                "Test/loss": np.mean(batch_val_loss),
                "Test/AUC": np.mean(batch_val_auc)})
 
-    if (np.mean(batch_train_auc) >= 0.78 and np.mean(batch_val_auc) >= 0.78):
+    if (np.mean(batch_train_auc) >= 0.78 and np.mean(batch_val_auc) >= 0.78 and False):
         if np.mean(batch_val_loss) < best_loss:
             best_loss = np.mean(batch_val_loss)
             torch.save({
