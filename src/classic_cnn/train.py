@@ -6,7 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import transforms
 from sklearn.metrics import classification_report
 # Training Params
-from src.AutoEncoder.AE import AE
+from src.AutoEncoder.AE_Squere import AE
 from src.FlattenFeatures.Network_Softmax_Flatten import NetSoftmax
 from src.classic_cnn.Dataloader import TCGAImageLoader
 import wandb
@@ -20,10 +20,10 @@ weight_decay = 1e-1 # 1e-5
 epochs = 150
 start_of_lr_decrease = 60
 # Dataset Params
-folder = "TP53_data"
+folder = "Metastatic_data"
 image_type = "SquereImg"
-predictor_column = 4 # 3=n_dim_img,4=flatten
-response_column = 7 # 5=met,6=wgii,7=tp53
+predictor_column = 3 # 3=n_dim_img,4=flatten
+response_column = 8 # 5=met,6=wgii,7=tp53, 8=coded_type
 
 wandb.init(project="genome_as_image", entity="mxs3203", name="{}-{}".format(image_type,folder),reinit=True)
 wandb.config = {
@@ -48,7 +48,7 @@ print("Test size: ", test_size)
 train_set, val_set = torch.utils.data.random_split(dataset, [train_size, test_size])
 trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=10, shuffle=True)
 valLoader = DataLoader(val_set, batch_size=batch_size, num_workers=10, shuffle=True)
-net = NetSoftmax()
+net = AE()
 net.to(device)
 cost_func = torch.nn.CrossEntropyLoss()
 

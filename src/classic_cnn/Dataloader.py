@@ -3,7 +3,8 @@ from torch.utils.data import Dataset
 import pandas as pd
 import numpy as np
 import torch
-from sklearn import preprocessing
+from sklearn.preprocessing import OrdinalEncoder
+
 
 
 class TCGAImageLoader(Dataset):
@@ -13,7 +14,8 @@ class TCGAImageLoader(Dataset):
         self.annotation = pd.read_csv(csv_file, sep=",")
         if filter_by_type is not None:
             self.annotation = self.annotation[self.annotation.type.isin(filter_by_type)]
-
+        ord_enc = OrdinalEncoder()
+        self.annotation["type_coded"] = ord_enc.fit_transform(self.annotation[["type"]])
         self.transform = transform
         self.folder = folder
         self.image_type = image_type
