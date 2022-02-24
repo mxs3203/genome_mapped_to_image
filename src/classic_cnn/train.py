@@ -6,7 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import transforms
 from sklearn.metrics import classification_report
 # Training Params
-from src.AutoEncoder.AE_Squere import AE
+from src.AutoEncoder.AE import AE
 from src.classic_cnn.Dataloader import TCGAImageLoader
 import wandb
 
@@ -19,10 +19,10 @@ weight_decay = 1e-5 # 1e-5
 epochs = 150
 start_of_lr_decrease = 60
 # Dataset Params
-folder = "TP53_data"
-image_type = "SquereImg"
+folder = "Metastatic_data"
+image_type = "ChrImg"
 predictor_column = 3 # 3=n_dim_img,4=flatten
-response_column = 7 # 5=met,6=wgii,7=tp53
+response_column = 5 # 5=met,6=wgii,7=tp53
 
 wandb.init(project="genome_as_image", entity="mxs3203", name="{}-{}".format(image_type,folder),reinit=True)
 wandb.config = {
@@ -109,12 +109,12 @@ val_losses = []
 for ep in range(epochs):
     batch_train_f1,batch_val_auc, batch_train_auc,\
     batch_train_loss, batch_val_f1, batch_val_loss = [],[],[],[],[],[]
-    for x, y_dat in trainLoader:
+    for x, y_dat,id in trainLoader:
         loss, acc_train, precision,recall,f1,train_auc = batch_train(x.cuda(), y_dat.cuda())
         batch_train_loss.append(loss)
         batch_train_f1.append(f1)
         batch_train_auc.append(train_auc)
-    for x, y_dat in valLoader:
+    for x, y_dat,id in valLoader:
         loss, acc_val,  precision,recall,f1,val_auc = batch_valid(x.cuda(), y_dat.cuda())
         batch_val_loss.append(loss)
         batch_val_f1.append(f1)
@@ -132,7 +132,7 @@ for ep in range(epochs):
                "Test/loss": np.mean(batch_val_loss),
                "Test/AUC": np.mean(batch_val_auc)})
 
-    if (np.mean(batch_train_auc) >= 0.80 and np.mean(batch_val_auc) >= 0.80):
+    if (np.mean(batch_train_auc) >= 0.78 and np.mean(batch_val_auc) >= 0.78):
         if np.mean(batch_val_loss) < best_loss:
             best_loss = np.mean(batch_val_loss)
             torch.save({

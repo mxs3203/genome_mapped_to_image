@@ -4,7 +4,7 @@ import pandas as pd
 import seaborn as sns
 import torch
 from PIL import Image
-from captum.attr import IntegratedGradients
+from captum.attr import IntegratedGradients, DeepLift
 from torch.utils.data import DataLoader
 
 from src.AutoEncoder.AE_Squere import AE
@@ -39,26 +39,25 @@ def show_data(x, y):
     f.show()
 
 all_genes = pd.read_csv("../data/raw_data/all_genes_ordered_by_chr.csv")
-#all_genes = all_genes[all_genes['name2'] != "TP53"]
+
 # Script Params
 cancer_types = ['DLBC', 'UCEC','STAD', 'OV','COAD', 'KIRC', 'BLCA'] # ['KIRC','STAD', 'UCEC','BLCA', , 'OV', 'DLBC', 'COAD']
 # Read this from Metadata!!
 image_type = "SquereImg"
 folder = "Metastatic_data"
-folder_for_res = "Metastatic"
 predictor_column = 3 # 3=n_dim_img,4=flatten
-response_column = 5 # 5=met,6=wgii,7=tp53
+response_column = 7 # 5=met,6=wgii,7=tp53
 
 # Model Params
 net = AE()
 LR = 0.0001
-checkpoint = torch.load("../src/classic_cnn/checkpoints/SquereImg-Metastatic_data")
+checkpoint = torch.load("../src/classic_cnn/checkpoints/SquereImg-TP53_data")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=0.01, lr=LR, weight_decay=0.001)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 net.eval()
 # make IG Instance of a model
-occlusion = IntegratedGradients(net)
+occlusion = DeepLift(net)
 
 # Run for every cancer type specified in a list
 for type in cancer_types:
@@ -78,7 +77,7 @@ for type in cancer_types:
     heatmaps_exp = []
 
     # iterate sample by samples
-    for x, y_dat , id in trainLoader:
+    for x, y_dat in trainLoader:
         #print("ID: ", id)
         #print("\t",d)
         #show_data(x, met_1_2_3)
@@ -115,7 +114,7 @@ for type in cancer_types:
     #plt.show()
 
     number_of_genes_returned = all_genes.shape[0]-1
-
+    folder_for_res = "TP53"
     image = make_image("ID", 1, all_genes)
     exp_att = image.analyze_attribution(mean_exp_matrix, number_of_genes_returned, "Expression")
     mut_att = image.analyze_attribution(mean_mut_matrix, number_of_genes_returned, "Mutation")
