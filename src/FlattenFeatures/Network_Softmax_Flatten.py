@@ -11,7 +11,7 @@ class NetSoftmax(nn.Module):
         self.drop = nn.Dropout(0.5)
         self.fc2 = nn.Linear(2048, 2048)
         self.fc3 = nn.Linear(2048, 2048)
-        self.fc4 = nn.Linear(2048, 2)
+        self.fc4 = nn.Linear(2048, 6)
         self.batchnorm1d = nn.BatchNorm1d(194045)
         self.batchnorm1d2 = nn.BatchNorm1d(2048)
         xavier_uniform_(self.fc1.weight)

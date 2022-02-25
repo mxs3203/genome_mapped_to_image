@@ -1,10 +1,10 @@
 import numpy as np
 import torch
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, multilabel_confusion_matrix
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import transforms
 from sklearn.metrics import classification_report
+
 # Training Params
 from src.AutoEncoder.AE_Squere import AE
 from src.FlattenFeatures.Network_Softmax_Flatten import NetSoftmax
@@ -12,20 +12,19 @@ from src.classic_cnn.Dataloader import TCGAImageLoader
 import wandb
 
 
-
 LR = 9.900000000000001e-05
 batch_size = 128
-lr_decay = 1e-1 # 1e-5
-weight_decay = 1e-1 # 1e-5
-epochs = 150
-start_of_lr_decrease = 60
+lr_decay = 1e-4  # 1e-5
+weight_decay = 1e-4  # 1e-5
+epochs = 1000
+start_of_lr_decrease = 150
 # Dataset Params
 folder = "Metastatic_data"
 image_type = "SquereImg"
 predictor_column = 3 # 3=n_dim_img,4=flatten
-response_column = 8 # 5=met,6=wgii,7=tp53, 8=coded_type
+response_column = 8  # 5=met,6=wgii,7=tp53,8=coded_type
 
-wandb.init(project="genome_as_image", entity="mxs3203", name="{}-{}".format(image_type,folder),reinit=True)
+wandb.init(project="genome_as_image", entity="mxs3203", name="{}-{}".format(image_type,"CancerType"),reinit=True)
 wandb.config = {
     "learning_rate": LR,
     "epochs": epochs,
@@ -38,7 +37,11 @@ wandb.config = {
 
 transform = transforms.Compose([transforms.ToTensor()])
 dataset = TCGAImageLoader("/media/mateo/data1/genome_mapped_to_image/data/main_meta_data.csv",
-                          folder, image_type, predictor_column, response_column, filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA'])
+                          folder,
+                          image_type,
+                          predictor_column,
+                          response_column,
+                          filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA'])
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 train_size = int(len(dataset) * 0.75)
@@ -53,7 +56,7 @@ net.to(device)
 cost_func = torch.nn.CrossEntropyLoss()
 
 wandb.watch(net)
-wandb.save("/media/mateo/data1/genome_mapped_to_image/src/FlattenFeatures/Network_Softmax_Flatten.py")
+wandb.save("/media/mateo/data1/genome_mapped_to_image/src/AutoEncoder/AE_Squere.py") #"AutoEncoder/AE.py")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=lr_decay, lr=LR, weight_decay=weight_decay)
 lambda1 = lambda epoch: 0.99 ** epoch
 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
@@ -67,7 +70,6 @@ def acc(y_hat, y):
     accuracy = corrects.sum().float() / float(y.size(0))
     return accuracy, winners
 
-
 def batch_train(x, y, auc_type=None):
     net.train()
     cost_func.zero_grad()
@@ -75,7 +77,8 @@ def batch_train(x, y, auc_type=None):
     y_probs = net.predict(x)
     loss = cost_func(y_hat, y)
     accuracy, pred_classes = acc(y_hat, y)
-    auc = roc_auc_score(y_true=y.cpu().detach(), y_score=y_probs.cpu().detach()[:,1], multi_class=auc_type)
+    auc = 0
+    #auc = roc_auc_score(y_true=y.cpu().detach(), y_score=y_probs.cpu().detach()[:,1], multi_class=auc_type)
     report = classification_report(
         digits=6,
         y_true=y.cpu().detach().numpy(),
@@ -86,7 +89,6 @@ def batch_train(x, y, auc_type=None):
     optimizer.step()
     return loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score'], auc
 
-
 def batch_valid(x, y, auc_type=None):
     with torch.no_grad():
         net.eval()
@@ -94,7 +96,8 @@ def batch_valid(x, y, auc_type=None):
         y_probs = net.predict(x)
         loss = cost_func(y_hat, y)
         accuracy, pred_classes = acc(y_hat, y)
-        auc = roc_auc_score(y_true=y.cpu().detach(), y_score=y_probs.cpu().detach()[:,1], multi_class=auc_type)
+        auc = 0
+        #auc = roc_auc_score(y_true=y.cpu().detach(), y_score=y_probs.cpu().detach()[:,1], multi_class=auc_type)
         report = classification_report(
             digits=6,
             y_true=y.cpu().detach().numpy(),
@@ -126,14 +129,15 @@ for ep in range(epochs):
         "Epoch {}: \n\tTrain loss: {} Train F1: {}, Train AUC: {} \n\tValidation loss: {} Val F1: {}, Val AUC: {} , \n\tLR : {}".format(ep,
             np.mean(batch_train_loss),np.mean(batch_train_f1),np.mean(batch_train_auc),
             np.mean( batch_val_loss),np.mean(batch_val_f1),np.mean(batch_val_auc),
-            optimizer.param_groups[0]["lr"]))
+            optimizer.param_groups[0]["lr"])
+    )
 
     wandb.log({"Train/loss":  np.mean(batch_train_loss),
-               "Train/AUC": np.mean(batch_train_auc),
+               "Train/F1": np.mean(batch_train_f1),
                "Test/loss": np.mean(batch_val_loss),
-               "Test/AUC": np.mean(batch_val_auc)})
+               "Test/F1": np.mean(batch_val_f1)})
 
-    if (np.mean(batch_train_auc) >= 0.78 and np.mean(batch_val_auc) >= 0.78 and False):
+    if (np.mean(batch_train_f1) >= 0.80 and np.mean(batch_val_f1) >= 0.75 ):
         if np.mean(batch_val_loss) < best_loss:
             best_loss = np.mean(batch_val_loss)
             torch.save({

@@ -19,7 +19,7 @@ class ConvNetSoftmax(nn.Module):
         self.drop = nn.Dropout(0.5)
         self.fc2 = nn.Linear(2048, 2048)
         self.fc3 = nn.Linear(2048, 512)
-        self.fc4 = nn.Linear(512, 2)
+        self.fc4 = nn.Linear(512, 6)
         self.batchnorm2d = nn.BatchNorm2d(5)
         self.batchnorm1d = nn.BatchNorm1d(9216)
         self.batchnorm1d2 = nn.BatchNorm1d(2048)

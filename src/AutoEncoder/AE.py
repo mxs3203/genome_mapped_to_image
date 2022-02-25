@@ -44,14 +44,14 @@ class AE(nn.Module):
             nn.Conv2d(64, 128, kernel_size=(2, 3), stride=1), nn.ReLU(), nn.MaxPool2d((2, 3)),
             nn.Dropout2d(0.05),
             nn.Conv2d(128, 128, kernel_size=(2, 3), stride=1), nn.ReLU(), nn.MaxPool2d((2, 3)),
-            nn.Conv2d(128, 128, kernel_size=(1, 4), stride=1), nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size=(1, 4), stride=1), nn.ReLU(), nn.MaxPool2d((1, 2)),
             nn.BatchNorm2d(128)
         )
         self.predictor = nn.Sequential(
-            nn.Linear(17664, 1024), nn.ReLU(),
+            nn.Linear(9088, 1024), nn.ReLU(),
             nn.Dropout(0.05),
             nn.Linear(1024, 512), nn.ReLU(),
-            nn.Linear(512, 1)
+            nn.Linear(512,6)
         )
 
     def predict(self, x):
