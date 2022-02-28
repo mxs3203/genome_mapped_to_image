@@ -5,10 +5,11 @@ from sklearn.metrics import  mean_squared_error
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
-from src.AutoEncoder.AE_Squere import AE
+from src.AutoEncoder.AE import AE
+from src.FlattenFeatures.Network_Softmax_Flatten import NetSoftmax
 from src.classic_cnn.Dataloader import TCGAImageLoader
 
-LR = 1e-2
+LR = 1e-6
 batch_size = 64
 lr_decay = 1e-3
 weight_decay = 1e-3
@@ -16,11 +17,11 @@ epochs = 200
 start_of_lr_decrease = 20
 # Dataset Params
 folder = "Metastatic_data"
-image_type = "ShuffleImg"
+image_type = "ChrImg"
 predictor_column = 3 # 3=n_dim_img,4=flatten
-response_column = 6  # 5=met,6=wgii,7=tp53
+response_column = 10  # 5=met,6=wgii,7=tp53,8=type, 9 = age
 
-wandb.init(project="genome_as_image", entity="mxs3203", name="wGII_{}".format(image_type),reinit=True)
+wandb.init(project="genome_as_image", entity="mxs3203", name="Age_{}".format(image_type),reinit=True)
 wandb.config = {
     "learning_rate": LR,
     "epochs": epochs,
@@ -57,7 +58,7 @@ optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=lr_decay, lr=LR, weig
 lambda1 = lambda epoch: 0.99 ** epoch
 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
 
-best_loss = float("+Inf")
+best_loss = 12345678909
 
 def batch_train(x, y):
     net.train()
@@ -109,7 +110,7 @@ for ep in range(epochs):
                "Test/MSE": np.mean(batch_val_mse),
                }
               )
-    if ( np.mean(batch_train_mse) <= 0.02 and np.mean(batch_val_mse) <= 0.025):
+    if ( np.mean(batch_train_mse) <= 0.1 and np.mean(batch_val_mse) <= 0.1):
         if np.mean(batch_val_loss) < best_loss:
             best_loss = np.mean(batch_val_loss)
             torch.save({
@@ -117,5 +118,5 @@ for ep in range(epochs):
                 'model_state_dict': net.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': np.mean(batch_val_loss)
-            }, "checkpoints/{}-{}.pb".format(image_type, folder))
-            wandb.save("checkpoints/wGII_{}-{}.pb".format(image_type, folder))
+            }, "checkpoints/Age_{}_{}.pb".format(image_type, folder))
+            wandb.save("checkpoints/Age_{}_{}.pb".format(image_type, folder))

@@ -46,12 +46,13 @@ cancer_types = ['DLBC', 'UCEC','STAD', 'OV','COAD', 'KIRC', 'BLCA'] # ['KIRC','S
 image_type = "SquereImg"
 folder = "Metastatic_data"
 predictor_column = 3 # 3=n_dim_img,4=flatten
-response_column = 7 # 5=met,6=wgii,7=tp53
+response_column = 8 # 5=met,6=wgii,7=tp53
+folder_for_res = "CancerType"
 
 # Model Params
 net = AE()
 LR = 0.0001
-checkpoint = torch.load("../src/classic_cnn/checkpoints/SquereImg-TP53_data")
+checkpoint = torch.load("../src/classic_cnn/checkpoints/SquereImg-CancerType")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=0.01, lr=LR, weight_decay=0.001)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -77,7 +78,7 @@ for type in cancer_types:
     heatmaps_exp = []
 
     # iterate sample by samples
-    for x, y_dat in trainLoader:
+    for x, y_dat, id in trainLoader:
         #print("ID: ", id)
         #print("\t",d)
         #show_data(x, met_1_2_3)
@@ -114,7 +115,7 @@ for type in cancer_types:
     #plt.show()
 
     number_of_genes_returned = all_genes.shape[0]-1
-    folder_for_res = "TP53"
+
     image = make_image("ID", 1, all_genes)
     exp_att = image.analyze_attribution(mean_exp_matrix, number_of_genes_returned, "Expression")
     mut_att = image.analyze_attribution(mean_mut_matrix, number_of_genes_returned, "Mutation")

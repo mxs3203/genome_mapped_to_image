@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 import pandas as pd
 import numpy as np
 import torch
-from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import OrdinalEncoder, MinMaxScaler
 
 
 
@@ -15,7 +15,9 @@ class TCGAImageLoader(Dataset):
         if filter_by_type is not None:
             self.annotation = self.annotation[self.annotation.type.isin(filter_by_type)]
         ord_enc = OrdinalEncoder()
+        scaler = MinMaxScaler()
         self.annotation["type_coded"] = ord_enc.fit_transform(self.annotation[["type"]])
+        self.annotation["age_at_initial_pathologic_diagnosis_scaled"] = scaler.fit_transform(self.annotation[["age_at_initial_pathologic_diagnosis"]])
         self.f_names = pd.unique(self.annotation['type'])
         self.transform = transform
         self.folder = folder
@@ -30,10 +32,10 @@ class TCGAImageLoader(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        with open("../data/{}/{}/{}".format(self.folder, self.image_type, self.annotation.iloc[idx, self.predictor_column]), 'rb') as f:
+        with open("../../data/{}/{}/{}".format(self.folder, self.image_type, self.annotation.iloc[idx, self.predictor_column]), 'rb') as f:
             x = pickle.load(f)
             f.close()
-        y = np.array(self.annotation.iloc[idx, self.response_column], dtype="long")
+        y = np.array(self.annotation.iloc[idx, self.response_column], dtype="float")
         if self.transform:
             x = self.transform(x)
 
