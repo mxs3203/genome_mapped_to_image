@@ -1,10 +1,11 @@
+import captum
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import torch
 from PIL import Image
-from captum.attr import IntegratedGradients
+from captum.attr import IntegratedGradients, DeepLift, DeepLiftShap
 from torch.utils.data import DataLoader
 
 from src.AutoEncoder.AE_Squere import AE
@@ -45,20 +46,20 @@ cancer_types = ['DLBC', 'UCEC','STAD', 'OV','COAD', 'KIRC', 'BLCA'] # ['KIRC','S
 # Read this from Metadata!!
 image_type = "SquereImg"
 folder = "Metastatic_data"
-folder_for_res = "Metastatic"
+folder_for_res = "wGII"
 predictor_column = 3 # 3=n_dim_img,4=flatten
-response_column = 8 # 5=met,6=wgii,7=tp53
+response_column = 6 # 5=met,6=wgii,7=tp53
 
 # Model Params
 net = AE()
-LR = 0.0001
-checkpoint = torch.load("../src/classic_cnn/checkpoints/SquereImg-CancerType")
+LR = 0.01
+checkpoint = torch.load("../src/classic_cnn/checkpoints/wGII_SquereImg_Metastatic_data.pb")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=0.01, lr=LR, weight_decay=0.001)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 net.eval()
 # make IG Instance of a model
-occlusion = IntegratedGradients(net)
+occlusion = captum.attr.IntegratedGradients(net)
 
 # Run for every cancer type specified in a list
 for type in cancer_types:
@@ -83,7 +84,7 @@ for type in cancer_types:
         #print("\t",d)
         #show_data(x, met_1_2_3)
         baseline = torch.zeros((1, x.shape[1], x.shape[2], x.shape[3]))
-        attribution = occlusion.attribute(x, baseline, target=int(y_dat))
+        attribution, approx_error = occlusion.attribute(x, baseline, return_convergence_delta=True)
         attribution = attribution.squeeze().cpu().detach().numpy()
         heatmaps_gains.append(np.abs(attribution[0, :, :]))
         heatmaps_loss.append(np.abs(attribution[1, :, :]))

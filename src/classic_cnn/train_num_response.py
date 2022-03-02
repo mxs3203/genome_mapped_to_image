@@ -5,23 +5,23 @@ from sklearn.metrics import  mean_squared_error
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
-from src.AutoEncoder.AE import AE
+from src.AutoEncoder.AE_Squere import AE
 from src.FlattenFeatures.Network_Softmax_Flatten import NetSoftmax
 from src.classic_cnn.Dataloader import TCGAImageLoader
 
-LR = 1e-6
+LR = 1e-4
 batch_size = 64
-lr_decay = 1e-3
-weight_decay = 1e-3
+lr_decay = 1e-5
+weight_decay = 1e-5
 epochs = 200
 start_of_lr_decrease = 20
 # Dataset Params
 folder = "Metastatic_data"
-image_type = "ChrImg"
+image_type = "SquereImg"
 predictor_column = 3 # 3=n_dim_img,4=flatten
-response_column = 10  # 5=met,6=wgii,7=tp53,8=type, 9 = age
+response_column = 6  # 5=met,6=wgii,7=tp53,8=type, 9 = age
 
-wandb.init(project="genome_as_image", entity="mxs3203", name="Age_{}".format(image_type),reinit=True)
+wandb.init(project="genome_as_image", entity="mxs3203", name="IGNORE_{}".format(image_type),reinit=True)
 wandb.config = {
     "learning_rate": LR,
     "epochs": epochs,
@@ -110,7 +110,7 @@ for ep in range(epochs):
                "Test/MSE": np.mean(batch_val_mse),
                }
               )
-    if ( np.mean(batch_train_mse) <= 0.1 and np.mean(batch_val_mse) <= 0.1):
+    if ( np.mean(batch_train_mse) <= 0.029 and np.mean(batch_val_mse) <= 0.029):
         if np.mean(batch_val_loss) < best_loss:
             best_loss = np.mean(batch_val_loss)
             torch.save({
@@ -118,5 +118,5 @@ for ep in range(epochs):
                 'model_state_dict': net.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': np.mean(batch_val_loss)
-            }, "checkpoints/Age_{}_{}.pb".format(image_type, folder))
-            wandb.save("checkpoints/Age_{}_{}.pb".format(image_type, folder))
+            }, "checkpoints/wGII_{}_{}.pb".format(image_type, folder))
+            wandb.save("checkpoints/wGII_{}_{}.pb".format(image_type, folder))
