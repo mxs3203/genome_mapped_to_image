@@ -13,18 +13,18 @@ import wandb
 
 
 LR = 9.900000000000001e-05
-batch_size = 128
-lr_decay = 1e-4  # 1e-5
-weight_decay = 1e-4  # 1e-5
-epochs = 1000
-start_of_lr_decrease = 150
+batch_size = 256
+lr_decay = 1e-3  # 1e-5
+weight_decay = 1e-3  # 1e-5
+epochs = 200
+start_of_lr_decrease = 60
 # Dataset Params
 folder = "Metastatic_data"
 image_type = "SquereImg"
 predictor_column = 3 # 3=n_dim_img,4=flatten
-response_column = 8  # 5=met,6=wgii,7=tp53,8=coded_type
+response_column = 5  # 5=met,6=wgii,7=tp53,8=coded_type
 
-wandb.init(project="genome_as_image", entity="mxs3203", name="{}-{}".format(image_type,"CancerType"),reinit=True)
+wandb.init(project="genome_as_image", entity="mxs3203", name="Squere_{}-{}".format(image_type,folder),reinit=True)
 wandb.config = {
     "learning_rate": LR,
     "epochs": epochs,
@@ -70,7 +70,7 @@ def acc(y_hat, y):
     accuracy = corrects.sum().float() / float(y.size(0))
     return accuracy, winners
 
-def batch_train(x, y, auc_type=None):
+def batch_train(x, y):
     net.train()
     cost_func.zero_grad()
     y_hat = net(x)
@@ -78,7 +78,7 @@ def batch_train(x, y, auc_type=None):
     loss = cost_func(y_hat, y)
     accuracy, pred_classes = acc(y_hat, y)
     auc = 0
-    #auc = roc_auc_score(y_true=y.cpu().detach(), y_score=y_probs.cpu().detach()[:,1], multi_class=auc_type)
+    auc = roc_auc_score(y_true=y.cpu().detach(), y_score=pred_classes.cpu().detach())
     report = classification_report(
         digits=6,
         y_true=y.cpu().detach().numpy(),
@@ -89,7 +89,7 @@ def batch_train(x, y, auc_type=None):
     optimizer.step()
     return loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score'], auc
 
-def batch_valid(x, y, auc_type=None):
+def batch_valid(x, y):
     with torch.no_grad():
         net.eval()
         y_hat = net(x)
@@ -97,7 +97,7 @@ def batch_valid(x, y, auc_type=None):
         loss = cost_func(y_hat, y)
         accuracy, pred_classes = acc(y_hat, y)
         auc = 0
-        #auc = roc_auc_score(y_true=y.cpu().detach(), y_score=y_probs.cpu().detach()[:,1], multi_class=auc_type)
+        auc = roc_auc_score(y_true=y.cpu().detach(), y_score=pred_classes.cpu().detach())
         report = classification_report(
             digits=6,
             y_true=y.cpu().detach().numpy(),
@@ -131,19 +131,19 @@ for ep in range(epochs):
             np.mean( batch_val_loss),np.mean(batch_val_f1),np.mean(batch_val_auc),
             optimizer.param_groups[0]["lr"])
     )
-
+    if np.mean(batch_val_loss) < best_loss:
+        best_loss = np.mean(batch_val_loss)
+        print("Best loss! ")
     wandb.log({"Train/loss":  np.mean(batch_train_loss),
-               "Train/F1": np.mean(batch_train_f1),
+               "Train/AUC": np.mean(train_auc),
                "Test/loss": np.mean(batch_val_loss),
-               "Test/F1": np.mean(batch_val_f1)})
+               "Test/AUC": np.mean(batch_val_auc)})
 
-    if (np.mean(batch_train_f1) >= 0.80 and np.mean(batch_val_f1) >= 0.75 ):
-        if np.mean(batch_val_loss) < best_loss:
-            best_loss = np.mean(batch_val_loss)
+    if (np.mean(batch_train_auc) >= 0.85 and np.mean(batch_val_auc) >= 0.85):
             torch.save({
                 'epoch': ep,
                 'model_state_dict': net.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': np.mean(batch_val_loss)
-            }, "checkpoints/{}-{}".format(image_type,folder))
+            }, "checkpoints/{}-{}.pb".format(image_type,folder))
             wandb.save("checkpoints/{}-{}.pb".format(image_type,folder))

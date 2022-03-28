@@ -1,4 +1,6 @@
 import pickle
+import random
+
 from torch.utils.data import Dataset
 import pandas as pd
 import numpy as np
@@ -17,6 +19,7 @@ class TCGAImageLoader(Dataset):
         ord_enc = OrdinalEncoder()
         scaler = MinMaxScaler()
         self.annotation["type_coded"] = ord_enc.fit_transform(self.annotation[["type"]])
+        self.annotation["type_coded_random"] = np.random.randint(0,5, size=np.shape(self.annotation)[0])
         self.annotation["age_at_initial_pathologic_diagnosis_scaled"] = scaler.fit_transform(self.annotation[["age_at_initial_pathologic_diagnosis"]])
         self.f_names = pd.unique(self.annotation['type'])
         self.transform = transform
@@ -35,8 +38,8 @@ class TCGAImageLoader(Dataset):
         with open("../data/{}/{}/{}".format(self.folder, self.image_type, self.annotation.iloc[idx, self.predictor_column]), 'rb') as f:
             x = pickle.load(f)
             f.close()
-        y = np.array(self.annotation.iloc[idx, self.response_column], dtype="float")
+        y = np.array(self.annotation.iloc[idx, self.response_column], dtype="long")
         if self.transform:
             x = self.transform(x)
 
-        return x, y, self.annotation.iloc[idx,1]
+        return x, y, self.annotation.iloc[idx,0]

@@ -46,14 +46,13 @@ cancer_types = ['DLBC', 'UCEC','STAD', 'OV','COAD', 'KIRC', 'BLCA'] # ['KIRC','S
 # Read this from Metadata!!
 image_type = "SquereImg"
 folder = "Metastatic_data"
-folder_for_res = "wGII"
 predictor_column = 3 # 3=n_dim_img,4=flatten
 response_column = 6 # 5=met,6=wgii,7=tp53, 8= type
 
 # Model Params
 net = AE()
 LR = 0.0001
-checkpoint = torch.load("../src/classic_cnn/checkpoints/wGII_SquereImg_Metastatic_data.pb")
+checkpoint = torch.load("../src/classic_cnn/checkpoints/SquereImg-Metastatic_data.pb")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=0.01, lr=LR, weight_decay=0.001)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -74,6 +73,6 @@ for x, y_dat, id in trainLoader:
 
 df = DataFrame(arr)
 df['sampleid'] = ids
-df.to_csv("../Results/wGII/encoded_genomes.csv")
+df.to_csv("../Results/Metastatic/encoded_genomes.csv")
 
 
