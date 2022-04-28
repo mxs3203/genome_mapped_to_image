@@ -16,6 +16,7 @@ class TCGAImageLoader(Dataset):
         self.annotation = pd.read_csv(csv_file, sep=",")
         if filter_by_type is not None:
             self.annotation = self.annotation[self.annotation.type.isin(filter_by_type)]
+        self.number_of_c_types = len(self.annotation['type'].unique())
         ord_enc = OrdinalEncoder()
         scaler = MinMaxScaler()
         self.annotation["type_coded"] = ord_enc.fit_transform(self.annotation[["type"]])

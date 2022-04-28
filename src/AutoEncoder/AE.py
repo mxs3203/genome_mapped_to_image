@@ -5,7 +5,7 @@ from src.VAE.VAEModel import UnFlatten
 
 
 class AE(nn.Module):
-    def __init__(self, image_channels=5):
+    def __init__(self, output_size, image_channels=5):
         super(AE, self).__init__()
         self.encoder = nn.Sequential(
             nn.BatchNorm2d(image_channels),
@@ -51,7 +51,7 @@ class AE(nn.Module):
             nn.Linear(9088, 1024), nn.ReLU(),
             nn.Dropout(0.05),
             nn.Linear(1024, 512), nn.ReLU(),
-            nn.Linear(512,1)
+            nn.Linear(512,output_size)
         )
 
     def predict(self, x):

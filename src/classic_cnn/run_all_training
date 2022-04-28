@@ -1,0 +1,6 @@
+#!/bin/sh
+
+python3 train.py "config/gender_square"
+#python3 train.py "config/gender_chr"
+#python3 train.py "config/gender_squere_shuffle"
+#python3 train.py "config/gender_flatten"

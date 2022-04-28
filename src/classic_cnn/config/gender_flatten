@@ -1,0 +1,16 @@
+{
+  "LR": 9.900000000000001e-05,
+  "batch_size": 256,
+  "lr_decay": 1e-3,
+  "weight_decay": 1e-3 ,
+  "epochs": 3,
+  "start_of_lr_decrease": 60,
+  "folder": "Metastatic_data",
+  "image_type": "Random193x193Image",
+  "predictor_column": 4,
+  "response_column": 11,
+  "run_name": "Flatten",
+  "trainer": "binary",
+  "save_model_score": 0.85,
+  "meta_data": "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/meta_data_new.csv"
+}

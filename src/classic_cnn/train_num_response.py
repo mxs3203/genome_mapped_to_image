@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import torch
 import wandb
@@ -8,29 +10,26 @@ from torchvision.transforms import transforms
 from src.AutoEncoder.AE_Squere import AE
 from src.FlattenFeatures.Network_Softmax_Flatten import NetSoftmax
 from src.classic_cnn.Dataloader import TCGAImageLoader
+from src.classic_cnn.train_util import return_model_and_cost_func_numeric
 
-LR = 1e-4
-batch_size = 64
-lr_decay = 1e-5
-weight_decay = 1e-5
-epochs = 200
-start_of_lr_decrease = 20
+with open("config/gender_square", "r") as jsonfile:
+    config = json.load(jsonfile)
+    print("Read successful")
+
+LR = config['LR'] #9.900000000000001e-05
+batch_size = config['batch_size']
+lr_decay = config['lr_decay']  # 1e-5
+weight_decay = config['weight_decay'] # 1e-5
+epochs = config['epochs'] #200
+start_of_lr_decrease = config['start_of_lr_decrease']#60
 # Dataset Params
-folder = "Metastatic_data"
-image_type = "SquereImg"
-predictor_column = 3 # 3=n_dim_img,4=flatten
-response_column = 6  # 5=met,6=wgii,7=tp53,8=type, 9 = age
+folder = config['folder'] #"Metastatic_data"
+image_type = config['image_type']# "SquereImg"
+predictor_column = config['predictor_column'] #
+response_column = config['response_column'] #11
 
 wandb.init(project="genome_as_image", entity="mxs3203", name="IGNORE_{}".format(image_type),reinit=True)
-wandb.config = {
-    "learning_rate": LR,
-    "epochs": epochs,
-    "batch_size": batch_size,
-    "folder": folder,
-    "image_type": image_type,
-    "weight_decay": weight_decay,
-    "lr_decay": lr_decay
-}
+
 
 transform = transforms.Compose([transforms.ToTensor()])
 dataset = TCGAImageLoader("/media/mateo/data1/genome_mapped_to_image/data/main_meta_data.csv",
@@ -48,9 +47,9 @@ print("Test size: ", test_size)
 train_set, val_set = torch.utils.data.random_split(dataset, [train_size, test_size])
 trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=10, shuffle=True)
 valLoader = DataLoader(val_set, batch_size=batch_size, num_workers=10, shuffle=True)
-net = AE()
+net, cost_func = return_model_and_cost_func_numeric(config)
+
 net.to(device)
-cost_func = torch.nn.MSELoss()
 
 wandb.watch(net)
 wandb.save("/media/mateo/data1/genome_mapped_to_image/src/AutoEncoder/AE_Squere.py")
