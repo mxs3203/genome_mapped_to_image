@@ -1,4 +1,5 @@
 import argparse
+import math
 import pickle
 import time
 
@@ -20,7 +21,7 @@ print(args)
 
 start_time = time.time()
 print("Reading clinical...")
-clinical = pd.read_csv("../../data/raw_data/clinical.csv")
+clinical = pd.read_csv("../../data/raw_data/clinical_all_cancer_with_300_samples.csv")
 print("Reading ascat...")
 ascat = pd.read_csv("../../data/raw_data/ascat.csv")
 ascat_loss = ascat.loc[ascat['loss'] == True]
@@ -41,12 +42,24 @@ with open("../../data/raw_data/methylation_mean.dat", 'rb') as f:
     methy = pickle.load(f)
     f.close()
 
-
-meta_data = pd.DataFrame(columns=['id', 'type', 'image_path', 'flatten_path','tp53','met'])
+meta_data = pd.DataFrame(columns=['id', 'type', 'image_path', 'flatten_path','tp53','met','age', 'gender', 'wGII'])
 for index, row in clinical.iterrows():
     id = row['bcr_patient_barcode']
     type = row['type']
+    if type == None:
+        type = -1
     met = row['metastatic_one_two_three']
+    if math.isnan(met):
+        met = -1
+    age = row['age_at_initial_pathologic_diagnosis']
+    if math.isnan(age):
+        age = -1
+    gender = row['gender']
+    if gender == None:
+        gender = -1
+    wGII = row['wGII']
+    if math.isnan(wGII):
+        wGII = -1
     tmp_mut = muts[muts["sampleID"] == id]
     tp53 = -1
     if "TP53" in tmp_mut['Hugo_Symbol'].values:
@@ -56,12 +69,8 @@ for index, row in clinical.iterrows():
     if args.tp53:
         print("Filtering tp53 from data")
         tmp_mut = tmp_mut[tmp_mut['Hugo_Symbol'] != "TP53"]
-    print(tmp_mut.shape)
-    print("Filtering TP53 muts from data")
-    tmp_mut = tmp_mut[tmp_mut['Hugo_Symbol'] != "TP53"]
-    print(tmp_mut.shape)
-    print(id, "->", met)
-    if (args.tp53 and tp53 in [0, 1]) or (not args.tp53 and met in [0,1]):
+
+    if (args.tp53 and tp53 in [0, 1]) or (not args.tp53 and met in [0, 1]):
         print("\tMaking image")
         image = make_image_chr(id, met, all_genes)
         print("\tMapping losses to genes")
@@ -92,9 +101,11 @@ for index, row in clinical.iterrows():
                                       'image_path': str("n_dim_images/{}.dat".format(id)),
                                       'flatten_path': str("flatten_vectors/{}.dat".format(id)),
                                       'tp53': int(tp53),
-                                      'met': int(met)
+                                      'met': int(met),
+                                      'age': int(age),
+                                      'gender': str(gender),
+                                      'wGII': float(wGII)
                                       },
                                      ignore_index=True)
-
 meta_data.to_csv("../../data/{}/meta_data.csv".format(folder))
 print("Done in --- %s seconds ---" % (time.time() - start_time))
