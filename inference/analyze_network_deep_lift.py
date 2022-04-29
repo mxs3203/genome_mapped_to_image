@@ -7,8 +7,8 @@ from PIL import Image
 from captum.attr import IntegratedGradients, DeepLift
 from torch.utils.data import DataLoader
 
-from src.AutoEncoder.AE_Squere import AE
-from src.classic_cnn.Dataloader import TCGAImageLoader
+from src.AutoEncoder.AE_Square import AE
+from src.modeling.Dataloader import TCGAImageLoader
 from src.image_to_picture.utils import make_image
 
 

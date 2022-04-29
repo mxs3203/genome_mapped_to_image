@@ -60,7 +60,7 @@ net.to(device)
 
 
 wandb.watch(net)
-wandb.save("/home/mateo/pytorch_docker/TCGA_GenomeImage/src/AutoEncoder/AE_Squere.py") #"AutoEncoder/AE.py")
+wandb.save("/src/AutoEncoder/AE_Square.py") #"AutoEncoder/AE.py")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=lr_decay, lr=LR, weight_decay=weight_decay)
 lambda1 = lambda epoch: 0.99 ** epoch
 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)

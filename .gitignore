@@ -3,9 +3,9 @@
 /tidy_version/v2/checkpoints/
 /tidy_version/v2/runs/
 /data/
-/src/classic_cnn/models/
-/src/classic_cnn/checkpoints/
-/src/classic_cnn/runs/
+/src/modeling/models/
+/src/modeling/checkpoints/
+/src/modeling/runs/
 /src/FlattenFeatures/checkpoints/
 /src/FlattenFeatures/models/
 /src/FlattenFeatures/runs/

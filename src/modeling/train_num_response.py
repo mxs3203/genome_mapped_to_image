@@ -7,10 +7,10 @@ from sklearn.metrics import  mean_squared_error
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
-from src.AutoEncoder.AE_Squere import AE
+from src.AutoEncoder.AE_Square import AE
 from src.FlattenFeatures.Network_Softmax_Flatten import NetSoftmax
-from src.classic_cnn.Dataloader import TCGAImageLoader
-from src.classic_cnn.train_util import return_model_and_cost_func_numeric
+from src.modeling.Dataloader import TCGAImageLoader
+from src.modeling.train_util import return_model_and_cost_func_numeric
 
 with open("config/gender_square", "r") as jsonfile:
     config = json.load(jsonfile)

@@ -5,6 +5,7 @@ import time
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from utils import make_image_chr, find_mutations, find_losses, find_gains, \
     find_gene_expression, find_methylation
 
@@ -43,7 +44,7 @@ with open("../../data/raw_data/methylation_mean.dat", 'rb') as f:
     f.close()
 
 meta_data = pd.DataFrame(columns=['id', 'type', 'image_path', 'flatten_path','tp53','met','age', 'gender', 'wGII'])
-for index, row in clinical.iterrows():
+for index, row in tqdm(clinical.iterrows()):
     id = row['bcr_patient_barcode']
     type = row['type']
     if type == None:
