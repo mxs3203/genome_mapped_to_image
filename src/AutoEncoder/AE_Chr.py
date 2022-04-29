@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 
-from src.VAE.VAEModel import UnFlatten
+from src.AutoEncoder.VAE_util import UnFlatten
 
 
 class AE(nn.Module):
@@ -66,9 +66,9 @@ class AE(nn.Module):
     def forward(self, x):
         x_enc = self.encoder(x)
         x_enc_flat = x_enc.view(x_enc.size(0), -1)
-        x = self.decoder(x_enc)
-        x = self.extractor(x)
+        x_dec = self.decoder(x_enc)
+        x = self.extractor(x_dec)
         x = x.view(x.size(0), -1)
         x = torch.cat([x, x_enc_flat], dim = 1)
         x = self.predictor(x)
-        return x
+        return x,x_dec

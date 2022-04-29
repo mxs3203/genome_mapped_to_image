@@ -1,0 +1,17 @@
+{
+  "LR": 9.900000000000001e-05,
+  "batch_size": 128,
+  "lr_decay": 1e-6,
+  "weight_decay": 1e-6 ,
+  "epochs": 200,
+  "start_of_lr_decrease": 60,
+  "folder": "Metastatic_data",
+  "image_type": "22x3760Image",
+  "predictor_column": 3,
+  "response_column": 5,
+  "run_name": "Chr",
+  "trainer": "binary",
+  "save_model_score": 0.80,
+  "early_stop_patience": 5,
+  "meta_data": "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/meta_data_7k_samples.csv"
+}

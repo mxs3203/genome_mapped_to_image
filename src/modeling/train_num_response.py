@@ -32,12 +32,12 @@ wandb.init(project="genome_as_image", entity="mxs3203", name="IGNORE_{}".format(
 
 
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("/media/mateo/data1/genome_mapped_to_image/data/main_meta_data.csv",
+dataset = TCGAImageLoader(config['meta_data'],
                           folder,
                           image_type,
                           predictor_column,
                           response_column,
-                          filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA'])
+                          filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA', 'LUAD', 'HNSC', 'THCA', 'BRCA'])
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 train_size = int(len(dataset) * 0.75)

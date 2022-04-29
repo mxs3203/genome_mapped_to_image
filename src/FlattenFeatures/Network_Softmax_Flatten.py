@@ -32,12 +32,12 @@ class NetSoftmax(nn.Module):
         x = self.drop(x)
         x = F.relu(self.fc3(x))
         x = self.fc4(x)
-        return x
+        return x, -1
 
     def predict(self, x):
         x = self.forward(x)
-        probs = torch.softmax(x, dim=1)
-        return probs
+        #probs = torch.softmax(x, dim=1)
+        return x
 
     def activations(self, x):
         # outputs activation this is not necessary just for fun

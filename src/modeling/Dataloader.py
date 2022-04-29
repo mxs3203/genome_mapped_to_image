@@ -1,5 +1,6 @@
 import pickle
 import random
+from collections import Counter
 
 from torch.utils.data import Dataset
 import pandas as pd
@@ -20,7 +21,7 @@ class TCGAImageLoader(Dataset):
         ord_enc = OrdinalEncoder()
         scaler = MinMaxScaler()
         self.annotation["type_coded"] = ord_enc.fit_transform(self.annotation[["type"]])
-        self.annotation["gender_coded"] = ord_enc.fit_transform(self.annotation[["gender"]])
+        #self.annotation["gender_coded"] = ord_enc.fit_transform(self.annotation[["gender"]])
         self.annotation["type_coded_random"] = np.random.randint(0,5, size=np.shape(self.annotation)[0])
         self.annotation["age_scaled"] = scaler.fit_transform(self.annotation[["age"]])
         self.f_names = pd.unique(self.annotation['type'])

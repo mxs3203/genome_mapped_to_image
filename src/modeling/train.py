@@ -1,8 +1,11 @@
+#!/usr/bin python3
+
 import sys
 
 import numpy as np
 import torch
-from sklearn.metrics import roc_auc_score, multilabel_confusion_matrix
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 from sklearn.metrics import classification_report
@@ -14,6 +17,7 @@ import json
 from Dataloader import TCGAImageLoader
 from train_util import return_model_and_cost_func
 
+sys.argv.append("config/metastatic_flatten")
 if len(sys.argv) == 1:
     print("You have to provide a path to a config file")
     quit(1)
@@ -36,36 +40,45 @@ image_type = config['image_type']# "SquereImg"
 predictor_column = config['predictor_column'] #
 response_column = config['response_column'] #11
 
-wandb.init(project="Test", entity="mxs3203", name="{}_{}-{}".format(config['run_name'],image_type,folder),reinit=True)
+wandb.init(project="Test", entity="mxs3203", name="{}_{}".format(config['run_name'],folder),reinit=True)
 wandb.save(config_path)
 
 transform = transforms.Compose([transforms.ToTensor()])
-dataset = TCGAImageLoader("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/meta_data_new.csv",
+dataset = TCGAImageLoader(config['meta_data'],
                           folder,
                           image_type,
                           predictor_column,
-                          response_column)
+                          response_column,
+                          filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA', 'LUAD', 'HNSC', 'THCA', 'BRCA'])
+
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 train_size = int(len(dataset) * 0.75)
 test_size = len(dataset) - train_size
 print("Train size: ", train_size)
 print("Test size: ", test_size)
-train_set, val_set = torch.utils.data.random_split(dataset, [train_size, test_size])
-trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=10, shuffle=True)
+train_set,val_set = train_test_split(dataset, test_size=0.25, stratify=dataset.annotation.iloc[:, config['response_column']])
+#train_set, val_set = torch.utils.data.random_split(dataset, [train_size, test_size])
+trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=10,shuffle=True)
 valLoader = DataLoader(val_set, batch_size=batch_size, num_workers=10, shuffle=True)
 
 
 net, cost_func = return_model_and_cost_func(config, dataset)
+cost_func_reconstruct = torch.nn.MSELoss()
 net.to(device)
 
 
 wandb.watch(net)
-wandb.save("/src/AutoEncoder/AE_Square.py") #"AutoEncoder/AE.py")
+wandb.save("/src/AutoEncoder/AE_Square.py")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=lr_decay, lr=LR, weight_decay=weight_decay)
 lambda1 = lambda epoch: 0.99 ** epoch
 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
 
 best_loss = float("+Inf")
+best_model = None
+trigger_times = 0
+last_loss = 0
+patience = config['early_stop_patience']
 
 def acc(y_hat, y):
     probs = torch.softmax(y_hat, dim=1)
@@ -77,7 +90,10 @@ def acc(y_hat, y):
 def batch_train(x, y):
     net.train()
     cost_func.zero_grad()
-    y_hat = net(x)
+    cost_func_reconstruct.zero_grad()
+    y_hat, reconstructed_img = net(x)
+    if config['run_name'] != "Flatten":
+        loss_reconstruct = cost_func_reconstruct(x, reconstructed_img)
     y_probs = net.predict(x)
     loss = cost_func(y_hat, y)
     accuracy, pred_classes = acc(y_hat, y)
@@ -89,16 +105,22 @@ def batch_train(x, y):
         y_pred=pred_classes.cpu().detach().numpy(),
         output_dict=True,
         zero_division=0)
-    loss.backward()
+    if config['run_name'] != "Flatten":
+        total_loss = (loss) + (loss_reconstruct)
+    else:
+        total_loss = (loss)
+    total_loss.backward()
     optimizer.step()
-    return loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score'], auc
+    return total_loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score'], auc
 
 def batch_valid(x, y):
     with torch.no_grad():
         net.eval()
-        y_hat = net(x)
+        y_hat, reconstructed_img  = net(x)
         y_probs = net.predict(x)
         loss = cost_func(y_hat, y)
+        if config['run_name'] != "Flatten":
+            loss_reconstruct = cost_func_reconstruct(x, reconstructed_img)
         accuracy, pred_classes = acc(y_hat, y)
         auc = 0
         auc = roc_auc_score(y_true=y.cpu().detach(), y_score=pred_classes.cpu().detach())
@@ -108,9 +130,20 @@ def batch_valid(x, y):
             y_pred=pred_classes.cpu().detach().numpy(),
             output_dict=True,
             zero_division=0)
+        if config['run_name'] != "Flatten":
+            total_loss = (loss) + (loss_reconstruct)
+        else:
+            total_loss = loss
+        return total_loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score'], auc
 
-        return loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score'], auc
-
+def saveModel(ep, optimizer, loss):
+    torch.save({
+        'epoch': ep,
+        'model_state_dict': best_model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': loss
+    }, "checkpoints/{}_{}_{}.pb".format(ep, image_type, folder))
+    wandb.save("checkpoints/{}_{}_{}.pb".format(ep, image_type, folder))
 
 train_losses = []
 val_losses = []
@@ -138,17 +171,23 @@ for ep in range(epochs):
     )
     if np.mean(batch_val_loss) < best_loss:
         best_loss = np.mean(batch_val_loss)
+        best_model = net
         print("Best loss! ")
     wandb.log({"Train/loss":  np.mean(batch_train_loss),
-               "Train/AUC": np.mean(train_auc),
+               "Train/AUC": np.mean(batch_train_auc),
                "Test/loss": np.mean(batch_val_loss),
                "Test/AUC": np.mean(batch_val_auc)})
 
     if (np.mean(batch_train_auc) >= config['save_model_score'] and np.mean(batch_val_auc) >= config['save_model_score']):
-            torch.save({
-                'epoch': ep,
-                'model_state_dict': net.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': np.mean(batch_val_loss)
-            }, "checkpoints/{}_{}_{}.pb".format(ep,image_type,folder))
-            wandb.save("checkpoints/{}_{}_{}.pb".format(ep, image_type,folder))
+        saveModel(ep, optimizer, np.mean(batch_val_loss))
+    if np.mean(batch_val_loss) > last_loss:
+        trigger_times += 1
+        print('Trigger Times:', trigger_times)
+        if trigger_times >= patience:
+            print("Early Stopping!")
+            saveModel(ep, optimizer,np.mean(batch_val_loss))
+            break
+    else:
+        print('trigger times: 0')
+        trigger_times = 0
+    last_loss = np.mean(batch_val_loss)
