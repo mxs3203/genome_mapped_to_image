@@ -17,7 +17,7 @@ import json
 from Dataloader import TCGAImageLoader
 from train_util import return_model_and_cost_func
 
-sys.argv.append("config/metastatic_flatten")
+sys.argv.append("config/tp53_square")
 if len(sys.argv) == 1:
     print("You have to provide a path to a config file")
     quit(1)
@@ -40,7 +40,7 @@ image_type = config['image_type']# "SquereImg"
 predictor_column = config['predictor_column'] #
 response_column = config['response_column'] #11
 
-wandb.init(project="Test", entity="mxs3203", name="{}_{}".format(config['run_name'],folder),reinit=True)
+wandb.init(project="Test2", entity="mxs3203", name="{}_{}".format(config['run_name'],folder),reinit=True)
 wandb.save(config_path)
 
 transform = transforms.Compose([transforms.ToTensor()])
@@ -69,7 +69,6 @@ net.to(device)
 
 
 wandb.watch(net)
-wandb.save("/src/AutoEncoder/AE_Square.py")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=lr_decay, lr=LR, weight_decay=weight_decay)
 lambda1 = lambda epoch: 0.99 ** epoch
 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)

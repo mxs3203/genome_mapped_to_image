@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 
-from src.AutoEncoder.VAE_util import UnFlatten
+from src.AutoEncoder.AE_util import UnFlatten
 
 
 class AE(nn.Module):

@@ -8,7 +8,7 @@
   "folder": "Metastatic_data",
   "image_type": "Random193x193Image",
   "predictor_column": 3,
-  "response_column": 5,
+  "response_column": 6,
   "run_name": "Shuffle",
   "trainer": "binary",
   "save_model_score": 0.99,
