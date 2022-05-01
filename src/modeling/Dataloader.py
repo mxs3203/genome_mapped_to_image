@@ -1,3 +1,4 @@
+import glob
 import pickle
 import random
 from collections import Counter
@@ -30,6 +31,13 @@ class TCGAImageLoader(Dataset):
         self.image_type = image_type
         self.predictor_column = predictor_column
         self.response_column = response_column
+        self.remove_rows_where_there_is_no_file()
+
+    def remove_rows_where_there_is_no_file(self):
+        files = glob.glob("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/{}/{}/n_dim_images/*.dat".format(self.folder, self.image_type))
+        ids = [f.split("/")[9] for f in files]
+        ids = [f.split(".")[0] for f in ids]
+        print(files)
 
     def __len__(self):
         return len(self.annotation)

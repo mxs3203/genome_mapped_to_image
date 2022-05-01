@@ -1,3 +1,12 @@
+library(tidyverse)
+
+files = list.files("TP53_data/SquareImg/n_dim_images/")
+files = unlist(lapply(files, function(x){
+  strsplit(x, "\\.")[[1]][1]
+}))
+a = meta_data_7k_samples %>% filter(id %in% files)
+write_delim(a, file = "meta_data_7k_samples_.csv",delim = ",")
+
 
 df = read.delim("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/TCGA_survival_data_clean.txt")
 
@@ -89,13 +98,13 @@ df4 = df3 %>% select(bcr_patient_barcode, metastatic_one_two_three, age_at_initi
 
 sum(is.na(df4))
 
-df4 %>% 
+allowed_c_types = df4 %>% 
   filter(!is.na(metastatic_one_two_three)) %>%
   group_by(type) %>% 
   summarise(n = n(), n_met = sum(metastatic_one_two_three == 1),
             percent = n_met/n) %>% 
-  arrange( desc(n_met))
-
-allowed_c_types = df %>% group_by(type) %>% summarise(n = n()) %>% filter(n > 300)
-df2 = df %>% filter(type %in% allowed_c_types$type)
+  filter(n > 300) %>%
+  arrange( desc(n_met)) 
+df4 = df4 %>% filter(type %in% allowed_c_types$type)
+table(df4$metastatic_one_two_three)
 write_csv(df4, "~/Desktop/clinical_all_cancer_with_300_samples.csv")

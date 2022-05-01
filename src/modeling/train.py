@@ -17,7 +17,7 @@ import json
 from Dataloader import TCGAImageLoader
 from train_util import return_model_and_cost_func
 
-sys.argv.append("config/tp53_square")
+sys.argv.append("config/tp53_square_shuffle")
 if len(sys.argv) == 1:
     print("You have to provide a path to a config file")
     quit(1)
@@ -39,8 +39,8 @@ folder = config['folder'] #"Metastatic_data"
 image_type = config['image_type']# "SquereImg"
 predictor_column = config['predictor_column'] #
 response_column = config['response_column'] #11
-
-wandb.init(project="Test2", entity="mxs3203", name="{}_{}".format(config['run_name'],folder),reinit=True)
+# Genome_As_Image_v2
+wandb.init(project="Genome_As_Image_v2", entity="mxs3203", name="{}_{}".format(config['run_name'],folder),reinit=True)
 wandb.save(config_path)
 
 transform = transforms.Compose([transforms.ToTensor()])
@@ -105,7 +105,7 @@ def batch_train(x, y):
         output_dict=True,
         zero_division=0)
     if config['run_name'] != "Flatten":
-        total_loss = (loss) + (loss_reconstruct)
+        total_loss = (loss) #+ (loss_reconstruct)
     else:
         total_loss = (loss)
     total_loss.backward()
@@ -130,7 +130,7 @@ def batch_valid(x, y):
             output_dict=True,
             zero_division=0)
         if config['run_name'] != "Flatten":
-            total_loss = (loss) + (loss_reconstruct)
+            total_loss = (loss) #+ (loss_reconstruct)
         else:
             total_loss = loss
         return total_loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score'], auc
