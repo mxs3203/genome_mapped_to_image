@@ -1,8 +1,8 @@
 {
-  "LR": 0.003,
+  "LR": 0.005,
   "batch_size": 256,
-  "lr_decay": 1e-6,
-  "weight_decay": 1e-6 ,
+  "lr_decay": 1e-2,
+  "weight_decay": 1e-2 ,
   "epochs": 200,
   "start_of_lr_decrease": 60,
   "folder": "TP53_data",
@@ -13,5 +13,5 @@
   "trainer": "binary",
   "save_model_score": 0.99,
   "early_stop_patience": 5,
-  "meta_data": "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/meta_data_7k_samples.csv"
+  "meta_data": "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/main_meta_data.csv"
 }

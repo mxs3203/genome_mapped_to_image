@@ -10,39 +10,39 @@ class AE(nn.Module):
         self.encoder = nn.Sequential(
             nn.BatchNorm2d(image_channels),
             nn.Conv2d(image_channels, 16, kernel_size=2, stride=2, padding=3), # 512/4=128, (B, 64, 128, 128)
-            nn.ReLU(),
+            nn.LeakyReLU(1e-6),
             nn.Conv2d(16, 32, kernel_size=4, stride=4), # 128/4=32 (B, 80, 32, 32)
-            nn.ReLU(),
+            nn.LeakyReLU(1e-6),
             nn.Conv2d(32, 64, kernel_size=5,stride=5), #32/4=8 (B, 100, 8, 8)
-            nn.ReLU(),
+            nn.LeakyReLU(1e-6),
             nn.Conv2d(64, 128, kernel_size=5,stride=5), #8/8=1 (B, 120, 1, 1)
-            nn.ReLU(),
+            nn.LeakyReLU(1e-6),
             UnFlatten(-1, 128, 1, 1),
         )
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(128, 64, kernel_size=5,stride=5),
-            nn.ReLU(),
+            nn.LeakyReLU(1e-6),
             nn.ConvTranspose2d(64, 32, kernel_size=5,stride=5),
-            nn.ReLU(),
+            nn.LeakyReLU(1e-6),
             nn.ConvTranspose2d(32, 16, kernel_size=4,stride=4),
-            nn.ReLU(),
+            nn.LeakyReLU(1e-6),
             nn.ConvTranspose2d(16, image_channels, kernel_size=2, stride=2, padding=2, output_padding=1),
-            nn.ReLU(),
+            nn.LeakyReLU(1e-6),
         )
 
         self.extractor = nn.Sequential(
             nn.BatchNorm2d(image_channels),
-            nn.Conv2d(image_channels, 64, kernel_size=(3, 3), stride=1, padding=1), nn.ReLU(), nn.MaxPool2d((3,3)),
-            nn.Conv2d(64, 128, kernel_size=(3, 3), stride=1), nn.ReLU(), nn.MaxPool2d((3, 3)),
+            nn.Conv2d(image_channels, 64, kernel_size=(3, 3), stride=1, padding=1), nn.LeakyReLU(1e-6), nn.MaxPool2d((3,3)),
+            nn.Conv2d(64, 128, kernel_size=(3, 3), stride=1), nn.LeakyReLU(1e-6), nn.MaxPool2d((3, 3)),
             nn.Dropout2d(0.35),
-            nn.Conv2d(128, 128, kernel_size=(3, 3), stride=1),nn.ReLU(), nn.MaxPool2d((3, 3)),
-            nn.Conv2d(128, 128, kernel_size=(3, 3), stride=1), nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size=(3, 3), stride=1),nn.LeakyReLU(1e-6), nn.MaxPool2d((3, 3)),
+            nn.Conv2d(128, 128, kernel_size=(3, 3), stride=1), nn.LeakyReLU(1e-6),
             nn.BatchNorm2d(128),
         )
         self.predictor = nn.Sequential(
-            nn.Linear(2176, 1024),nn.ReLU(),
+            nn.Linear(2176, 1024),nn.LeakyReLU(1e-6),
             nn.Dropout(0.25),
-            nn.Linear(1024, 512),nn.ReLU(),
+            nn.Linear(1024, 512),nn.LeakyReLU(1e-6),
             nn.Linear(512,output_size)
         )
 

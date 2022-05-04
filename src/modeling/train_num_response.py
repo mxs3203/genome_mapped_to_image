@@ -1,4 +1,7 @@
+#!/usr/bin python3
+
 import json
+import sys
 
 import numpy as np
 import torch
@@ -7,12 +10,17 @@ from sklearn.metrics import  mean_squared_error
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
-from src.AutoEncoder.AE_Square import AE
-from src.FlattenFeatures.Network_Softmax_Flatten import NetSoftmax
 from src.modeling.Dataloader import TCGAImageLoader
 from src.modeling.train_util import return_model_and_cost_func_numeric
 
-with open("config/gender_square", "r") as jsonfile:
+sys.argv.append("config/age_chr")
+if len(sys.argv) == 1:
+    print("You have to provide a path to a config file")
+    quit(1)
+else:
+    config_path = sys.argv[1]
+
+with open(config_path, "r") as jsonfile:
     config = json.load(jsonfile)
     print("Read successful")
 
@@ -27,9 +35,9 @@ folder = config['folder'] #"Metastatic_data"
 image_type = config['image_type']# "SquereImg"
 predictor_column = config['predictor_column'] #
 response_column = config['response_column'] #11
-
-wandb.init(project="genome_as_image", entity="mxs3203", name="IGNORE_{}".format(image_type),reinit=True)
-
+# Genome_As_Image_v2
+wandb.init(project="Genome_As_Image_v2", entity="mxs3203", name="{}_{}".format(config['run_name'],folder),reinit=True)
+wandb.save(config_path)
 
 transform = transforms.Compose([transforms.ToTensor()])
 dataset = TCGAImageLoader(config['meta_data'],
@@ -37,47 +45,72 @@ dataset = TCGAImageLoader(config['meta_data'],
                           image_type,
                           predictor_column,
                           response_column,
-                          filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA', 'LUAD', 'HNSC', 'THCA', 'BRCA'])
+                          filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC', 'STAD', 'BLCA'])
+
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(device)
 train_size = int(len(dataset) * 0.75)
 test_size = len(dataset) - train_size
 print("Train size: ", train_size)
 print("Test size: ", test_size)
 train_set, val_set = torch.utils.data.random_split(dataset, [train_size, test_size])
-trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=10, shuffle=True)
-valLoader = DataLoader(val_set, batch_size=batch_size, num_workers=10, shuffle=True)
-net, cost_func = return_model_and_cost_func_numeric(config)
 
+trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=1, shuffle=True)
+valLoader = DataLoader(val_set, batch_size=batch_size, shuffle=True)
+
+
+net, cost_func = return_model_and_cost_func_numeric(config)
+cost_func_reconstruct = torch.nn.MSELoss()
 net.to(device)
 
 wandb.watch(net)
-wandb.save("/media/mateo/data1/genome_mapped_to_image/src/AutoEncoder/AE_Squere.py")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=lr_decay, lr=LR, weight_decay=weight_decay)
 lambda1 = lambda epoch: 0.99 ** epoch
 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
 
-best_loss = 12345678909
+best_loss = float("+Inf")
+best_model = None
+trigger_times = 0
+last_loss = 0
+patience = config['early_stop_patience']
+
 
 def batch_train(x, y):
     net.train()
     cost_func.zero_grad()
-    y_hat = net(x)
+    cost_func_reconstruct.zero_grad()
+    y_hat, reconstructed_img = net(x)
     loss = cost_func(y_hat.squeeze(), y.float())
+    if config['run_name'] != "Flatten":
+        total_loss = (loss) + (cost_func_reconstruct(x, reconstructed_img))
+    else :
+        total_loss = loss
     mse = mean_squared_error(y_true=y.cpu().detach(), y_pred=y_hat.cpu().detach())
 
-    loss.backward()
+    total_loss.backward()
     optimizer.step()
-    return loss.item(), mse, np.sqrt(mse)
+    return total_loss.item(), mse, np.sqrt(mse)
 
+def saveModel(ep, optimizer, loss):
+    torch.save({
+        'epoch': ep,
+        'model_state_dict': best_model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': loss
+    }, "checkpoints/{}_{}_{}.pb".format(ep, image_type, folder))
+    wandb.save("checkpoints/{}_{}_{}.pb".format(ep, image_type, folder))
 
 def batch_valid(x, y):
     with torch.no_grad():
         net.eval()
-        y_hat = net(x)
+        y_hat,reconstructed_img = net(x)
         loss = cost_func(y_hat.squeeze(), y.float())
+        if config['run_name'] != "Flatten":
+            total_loss = (loss) + (cost_func_reconstruct(x, reconstructed_img))
+        else:
+            total_loss = loss
         mse = mean_squared_error(y_true=y.cpu().detach(), y_pred=y_hat.cpu().detach())
-        return loss.item(), mse, np.sqrt(mse)
+        return total_loss.item(), mse, np.sqrt(mse)
 
 
 train_losses = []
@@ -109,13 +142,20 @@ for ep in range(epochs):
                "Test/MSE": np.mean(batch_val_mse),
                }
               )
-    if ( np.mean(batch_train_mse) <= 0.029 and np.mean(batch_val_mse) <= 0.029):
-        if np.mean(batch_val_loss) < best_loss:
-            best_loss = np.mean(batch_val_loss)
-            torch.save({
-                'epoch': ep,
-                'model_state_dict': net.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': np.mean(batch_val_loss)
-            }, "checkpoints/wGII_{}_{}.pb".format(image_type, folder))
-            wandb.save("checkpoints/wGII_{}_{}.pb".format(image_type, folder))
+    if np.mean(batch_val_loss) < best_loss:
+        best_loss = np.mean(batch_val_loss)
+        best_model = net
+        print("Best loss! ")
+    if (np.mean(batch_train_mse) <= config['save_model_score'] and np.mean(batch_val_mse) <= config['save_model_score']):
+        saveModel(ep, optimizer, np.mean(batch_val_loss))
+    if np.mean(batch_val_loss) > last_loss:
+        trigger_times += 1
+        print('Trigger Times:', trigger_times)
+        if trigger_times >= patience:
+            print("Early Stopping!")
+            saveModel(ep, optimizer, np.mean(batch_val_loss))
+            break
+    else:
+        print('trigger times: 0')
+        trigger_times = 0
+    last_loss = np.mean(batch_val_loss)

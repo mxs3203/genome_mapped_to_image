@@ -13,5 +13,5 @@
   "trainer": "binary",
   "save_model_score": 0.99,
   "early_stop_patience": 5,
-  "meta_data": "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/meta_data_7k_samples.csv"
+  "meta_data": "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/main_meta_data.csv"
 }

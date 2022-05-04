@@ -5,8 +5,7 @@ import sys
 import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from torchvision.transforms import transforms
 from sklearn.metrics import classification_report
 
@@ -17,7 +16,7 @@ import json
 from Dataloader import TCGAImageLoader
 from train_util import return_model_and_cost_func
 
-sys.argv.append("config/tp53_square_shuffle")
+sys.argv.append("config/cancer_type_square")
 if len(sys.argv) == 1:
     print("You have to provide a path to a config file")
     quit(1)
@@ -49,7 +48,7 @@ dataset = TCGAImageLoader(config['meta_data'],
                           image_type,
                           predictor_column,
                           response_column,
-                          filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA', 'LUAD', 'HNSC', 'THCA', 'BRCA'])
+                          filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA'])
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -57,10 +56,10 @@ train_size = int(len(dataset) * 0.75)
 test_size = len(dataset) - train_size
 print("Train size: ", train_size)
 print("Test size: ", test_size)
-train_set,val_set = train_test_split(dataset, test_size=0.25, stratify=dataset.annotation.iloc[:, config['response_column']])
-#train_set, val_set = torch.utils.data.random_split(dataset, [train_size, test_size])
-trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=10,shuffle=True)
-valLoader = DataLoader(val_set, batch_size=batch_size, num_workers=10, shuffle=True)
+train_set, val_set = torch.utils.data.random_split(dataset, [train_size, test_size])
+
+trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=10, shuffle=True)
+valLoader = DataLoader(val_set, batch_size=batch_size,num_workers=10, shuffle=True)
 
 
 net, cost_func = return_model_and_cost_func(config, dataset)
@@ -97,7 +96,8 @@ def batch_train(x, y):
     loss = cost_func(y_hat, y)
     accuracy, pred_classes = acc(y_hat, y)
     auc = 0
-    auc = roc_auc_score(y_true=y.cpu().detach(), y_score=pred_classes.cpu().detach())
+    if config['trainer'] != "multi-class":
+        auc = roc_auc_score(y_true=y.cpu().detach(), y_score=pred_classes.cpu().detach())
     report = classification_report(
         digits=6,
         y_true=y.cpu().detach().numpy(),
@@ -105,7 +105,7 @@ def batch_train(x, y):
         output_dict=True,
         zero_division=0)
     if config['run_name'] != "Flatten":
-        total_loss = (loss) #+ (loss_reconstruct)
+        total_loss = (loss) # + (loss_reconstruct)
     else:
         total_loss = (loss)
     total_loss.backward()
@@ -122,7 +122,8 @@ def batch_valid(x, y):
             loss_reconstruct = cost_func_reconstruct(x, reconstructed_img)
         accuracy, pred_classes = acc(y_hat, y)
         auc = 0
-        auc = roc_auc_score(y_true=y.cpu().detach(), y_score=pred_classes.cpu().detach())
+        if config['trainer'] != "multi-class":
+            auc = roc_auc_score(y_true=y.cpu().detach(), y_score=pred_classes.cpu().detach())
         report = classification_report(
             digits=6,
             y_true=y.cpu().detach().numpy(),
@@ -172,12 +173,18 @@ for ep in range(epochs):
         best_loss = np.mean(batch_val_loss)
         best_model = net
         print("Best loss! ")
-    wandb.log({"Train/loss":  np.mean(batch_train_loss),
+    if config['trainer'] != "multi-class":
+        wandb.log({"Train/loss":  np.mean(batch_train_loss),
                "Train/AUC": np.mean(batch_train_auc),
                "Test/loss": np.mean(batch_val_loss),
                "Test/AUC": np.mean(batch_val_auc)})
+    else:
+        wandb.log({"Train/loss": np.mean(batch_train_loss),
+                   "Train/F1": np.mean(batch_train_f1),
+                   "Test/loss": np.mean(batch_val_loss),
+                   "Test/F1": np.mean(batch_val_f1)})
 
-    if (np.mean(batch_train_auc) >= config['save_model_score'] and np.mean(batch_val_auc) >= config['save_model_score']):
+    if (np.mean(batch_train_f1) >= config['save_model_score'] and np.mean(batch_val_f1) >= config['save_model_score']):
         saveModel(ep, optimizer, np.mean(batch_val_loss))
     if np.mean(batch_val_loss) > last_loss:
         trigger_times += 1

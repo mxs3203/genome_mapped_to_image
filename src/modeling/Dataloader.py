@@ -33,11 +33,22 @@ class TCGAImageLoader(Dataset):
         self.response_column = response_column
         self.remove_rows_where_there_is_no_file()
 
+    def compute_class_weight(self, dataset):
+        y = []
+        for x,y_label,i in dataset:
+            y.append(y_label.item())
+        count = Counter(y)
+        class_count = np.array([count[0], count[1]])
+        weight = 1. / class_count
+        samples_weight = np.array([weight[t] for t in y])
+        samples_weight = torch.from_numpy(samples_weight)
+        return samples_weight
+
     def remove_rows_where_there_is_no_file(self):
         files = glob.glob("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/{}/{}/n_dim_images/*.dat".format(self.folder, self.image_type))
         ids = [f.split("/")[9] for f in files]
         ids = [f.split(".")[0] for f in ids]
-        print(files)
+        self.annotation = self.annotation[self.annotation['id'].isin(ids)]
 
     def __len__(self):
         return len(self.annotation)
@@ -49,7 +60,7 @@ class TCGAImageLoader(Dataset):
         with open("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/{}/{}/{}".format(self.folder, self.image_type, self.annotation.iloc[idx, self.predictor_column]), 'rb') as f:
             x = pickle.load(f)
             f.close()
-        y = np.array(self.annotation.iloc[idx, self.response_column], dtype="long")
+        y = np.array(self.annotation.iloc[idx, self.response_column], dtype="float")
         if self.transform:
             x = self.transform(x)
 
