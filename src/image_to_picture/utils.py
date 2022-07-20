@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from Image import Image
-from ImageCell import ImageCell
+from src.image_to_picture.Image import Image
+from src.image_to_picture.ImageCell import ImageCell
 
 genes_per_chr = {'1': 3759, '10': 1593, '11': 2131, '12': 1867, '13': 930, '14': 1275,
                  '15': 1372, '16': 1530, '17': 1953, '18': 699, '19': 2057, '2': 2696,

@@ -11,7 +11,7 @@
   "response_column": 9,
   "run_name": "Square",
   "trainer": "multi-class",
-  "save_model_score": 0.7,
+  "save_model_score": 0.5,
   "early_stop_patience": 5,
   "meta_data": "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/main_meta_data.csv"
 }

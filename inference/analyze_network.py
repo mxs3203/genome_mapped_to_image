@@ -42,19 +42,19 @@ def show_data(x, y):
 all_genes = pd.read_csv("../data/raw_data/all_genes_ordered_by_chr.csv")
 #all_genes = all_genes[all_genes['name2'] != "TP53"]
 # Script Params
-cancer_types = ['DLBC', 'UCEC','STAD', 'OV','COAD', 'KIRC', 'BLCA'] # ['KIRC','STAD', 'UCEC','BLCA', , 'OV', 'DLBC', 'COAD']
+cancer_types =['UCEC','OV', 'COAD',  'KIRC','STAD', 'BLCA'] # ['KIRC','STAD', 'UCEC','BLCA', , 'OV', 'DLBC', 'COAD']
 # Read this from Metadata!!
-image_type = "SquereImg"
+image_type = "SquareImg"
 folder = "Metastatic_data"
-folder_for_res = "wGII"
+folder_for_res = "Age"
 predictor_column = 3 # 3=n_dim_img,4=flatten
-response_column = 6 # 5=met,6=wgii,7=tp53
+response_column = 11 # 5=met,6=wgii,7=tp53, 9=type
 
 # Model Params
-net = AE()
-LR = 0.01
-checkpoint = torch.load("../src/classic_cnn/checkpoints/wGII_SquereImg_Metastatic_data.pb")
-optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=0.01, lr=LR, weight_decay=0.001)
+net = AE(output_size=1)
+LR = 9.900000000000001e-05
+checkpoint = torch.load("../src/modeling/models/v2/47_SquareImg_age.pb")
+optimizer = torch.optim.Adagrad(net.parameters(), lr_decay= 1e-6, lr=LR, weight_decay= 1e-6)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 net.eval()
@@ -66,7 +66,7 @@ for type in cancer_types:
 
     type = str(type)
     # load the data
-    dataset = TCGAImageLoader("/media/mateo/data1/genome_mapped_to_image/data/main_meta_data.csv",
+    dataset = TCGAImageLoader("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/main_meta_data.csv",
                               folder, image_type, predictor_column, response_column,
                               filter_by_type=[type])
     trainLoader = DataLoader(dataset, batch_size=1, num_workers=10, shuffle=False)
@@ -84,7 +84,7 @@ for type in cancer_types:
         #print("\t",d)
         #show_data(x, met_1_2_3)
         baseline = torch.zeros((1, x.shape[1], x.shape[2], x.shape[3]))
-        attribution, approx_error = occlusion.attribute(x, baseline, return_convergence_delta=True)
+        attribution = occlusion.attribute(x, baseline)
         attribution = attribution.squeeze().cpu().detach().numpy()
         heatmaps_gains.append(np.abs(attribution[0, :, :]))
         heatmaps_loss.append(np.abs(attribution[1, :, :]))
@@ -125,5 +125,5 @@ for type in cancer_types:
     meth_att = image.analyze_attribution(mean_meth_matrix, number_of_genes_returned, "Methylation")
 
     total_df = pd.concat([exp_att,mut_att,gain_att,loss_att, meth_att])
-    total_df.to_csv("../Results/{}/{}_{}_{}_top_{}.csv".format(folder_for_res,type, image_type, folder_for_res, number_of_genes_returned))
+    total_df.to_csv("../Results/V2/{}/Square/{}_{}_{}_top_{}.csv".format(folder_for_res,type, image_type, folder_for_res, number_of_genes_returned))
 

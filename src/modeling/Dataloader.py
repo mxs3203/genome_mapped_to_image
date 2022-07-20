@@ -60,7 +60,7 @@ class TCGAImageLoader(Dataset):
         with open("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/{}/{}/{}".format(self.folder, self.image_type, self.annotation.iloc[idx, self.predictor_column]), 'rb') as f:
             x = pickle.load(f)
             f.close()
-        y = np.array(self.annotation.iloc[idx, self.response_column], dtype="float")
+        y = np.array(self.annotation.iloc[idx, self.response_column], dtype="long")
         if self.transform:
             x = self.transform(x)
 
