@@ -4,13 +4,11 @@ import pandas as pd
 import numpy as np
 import pickle
 import time
-import math
-
 from utils import make_image, find_losses, find_gains, find_mutations, find_gene_expression, \
     find_methylation
 
 parser = argparse.ArgumentParser(description='')
-parser.add_argument('--output',type=str, default='TP53_data/SquereImg')
+parser.add_argument('--output',type=str, default='PFI_Version/Metastatic_data/SquareImg')
 parser.add_argument('--tp53', type=int, default='0')
 parser.add_argument('--shuffle', type=int, default='0')
 
@@ -21,13 +19,14 @@ folder = args.output #'TP53_data/ShuffleImg'
 print(args)
 start_time = time.time()
 print("Reading clinical...")
-clinical = pd.read_csv("../../data/raw_data/clinical_all_cancer_with_300_samples.csv")
+clinical = pd.read_csv("../../data/raw_data/PFI_metadata.csv")
 print("Reading ascat...")
 ascat = pd.read_csv("../../data/raw_data/ascat.csv")
 ascat_loss = ascat.loc[ascat['loss'] == True]
 ascat_gain = ascat.loc[ascat['gain'] == True]
 print("Reading all gene definition...")
 all_genes = pd.read_csv("../../data/raw_data/all_genes_ordered_by_chr.csv")
+
 if args.shuffle:
     print("Shuffling gene list")
     all_genes = all_genes.sample(frac=1).reset_index(drop=True) # Shuffle genes
@@ -42,35 +41,21 @@ with open("../../data/raw_data/methylation_mean.dat", 'rb') as f:
     methy = pickle.load(f)
     f.close()
 
-meta_data = pd.DataFrame(columns=['id', 'type', 'image_path', 'flatten_path','tp53','met','age', 'gender', 'wGII'])
 for index, row in clinical.iterrows():
     id = row['bcr_patient_barcode']
+    print(id)
     type = row['type']
-    if type == None:
-        type = -1
-    met = row['metastatic_one_two_three']
-    if math.isnan(met):
-        met = -1
+    met = row['PFI']
     age = row['age_at_initial_pathologic_diagnosis']
-    if math.isnan(age):
-        age = -1
-    gender = row['gender']
-    if gender == None:
-        gender = -1
-    wGII = row['wGII']
-    if math.isnan(wGII):
-        wGII = -1
+    tp53 = row['tp53']
+
     tmp_mut = muts[muts["sampleID"] == id]
-    tp53 = -1
-    if "TP53" in tmp_mut['Hugo_Symbol'].values:
-        tp53 = 1
-    else:
-        tp53 = 0
+
     if args.tp53:
         print("Filtering tp53 from data")
         tmp_mut = tmp_mut[tmp_mut['Hugo_Symbol'] != "TP53"]
 
-    if (args.tp53 and tp53 in [0, 1]) or (not args.tp53 and met in [0,1]):
+    if met in [0,1]:
         print("\tMaking image")
         image = make_image(id, met, all_genes)
         print("\tMapping losses to genes")
@@ -99,18 +84,5 @@ for index, row in clinical.iterrows():
         with open("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/{}/flatten_vectors/{}.dat".format(folder,id), 'wb') as f:
             pickle.dump(feature_vector, f)
             f.close()
-        meta_data = meta_data.append({'id': str(id),
-                                      'type': str(type),
-                                      'image_path': str("n_dim_images/{}.dat".format(id)),
-                                      'flatten_path': str("flatten_vectors/{}.dat".format(id)),
-                                      'tp53': int(tp53),
-                                      'met': int(met),
-                                      'age': int(age),
-                                      'gender': str(gender),
-                                      'wGII': float(wGII)
-                                      },
-                                     ignore_index=True)
 
-meta_data.to_csv("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/{}/meta_data_new.csv".format(folder))
 print("Done in --- %s minutes ---" % ((time.time() - start_time) / 60))
-print(pd.crosstab(meta_data.type, meta_data.tp53))

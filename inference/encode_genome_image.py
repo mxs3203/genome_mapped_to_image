@@ -44,12 +44,12 @@ cancer_types =['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA'] # ['KIRC','STAD', 'U
 image_type = "SquareImg"
 folder = "Metastatic_data"
 predictor_column = 3 # 3=n_dim_img,4=flatten
-response_column = 10 # 5=met,6=wgii,7=tp53, 9= type
+response_column = 5 # 5=met,6=wgii,7=tp53, 9= type
 
 # Model Params
-net = AE(output_size=6)
+net = AE(output_size=2)
 LR = 9.900000000000001e-05
-checkpoint = torch.load("../src/modeling/models/v1/SquareImg_RandomCancerType.pb")
+checkpoint = torch.load("../src/modeling/models/v2/223_SquareImg_Metastatic_data.pb")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay= 1e-6, lr=LR, weight_decay= 1e-6)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -58,18 +58,35 @@ net.eval()
 dataset = TCGAImageLoader("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/main_meta_data.csv",
                           folder, image_type, predictor_column, response_column,
                           filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA'] )
-trainLoader = DataLoader(dataset, batch_size=120, num_workers=10, shuffle=False)
+trainLoader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=False)
 
 arr = np.empty((0, 128), float)
 ids = []
+true_y = []
+pred_y = []
 for x, y_dat, id in trainLoader:
-    encoded_genome = net.encode(x)
+    #encoded_genome = net.encode(x)
     id = np.array(id)
     ids = np.concatenate((ids, id))
-    arr = np.append(arr, encoded_genome.detach().numpy(), axis=0)
+    #arr = np.append(arr, encoded_genome.detach().numpy(), axis=0)
 
-df = DataFrame(arr)
+    y, decoded = net(x)
+    probs = torch.softmax(y, dim=1)
+    winners = probs.argmax(dim=1)
+    true_y.append(y_dat.detach().numpy())
+    pred_y.append(winners.detach().numpy())
+
+
+df = DataFrame()
 df['sampleid'] = ids
-df.to_csv("../Results/V2/RandomCancerType/encoded_genomes.csv")
+df['true_y'] = true_y
+df['pred_y'] = pred_y
+print(df)
+df.to_csv("../Results/V2/Metastatic/confusion_matrix.csv")
+
+
+#df = DataFrame(arr)
+#df['sampleid'] = ids
+#df.to_csv("../Results/V2/RandomCancerType/encoded_genomes.csv")
 
 
