@@ -45,10 +45,12 @@ class TCGAImageLoader(Dataset):
         return samples_weight
 
     def remove_rows_where_there_is_no_file(self):
-        files = glob.glob("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/{}/{}/n_dim_images/*.dat".format(self.folder, self.image_type))
-        ids = [f.split("/")[9] for f in files]
+        print("Finding all files from metadata... number of files: ",np.shape(self.annotation)[0])
+        files = glob.glob("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/{}/{}/5_dim_images/*.dat".format(self.folder, self.image_type))
+        ids = [f.split("/")[10] for f in files]
         ids = [f.split(".")[0] for f in ids]
         self.annotation = self.annotation[self.annotation['id'].isin(ids)]
+        print("Number of Files after removing the missing files: ",np.shape(self.annotation)[0])
 
     def __len__(self):
         return len(self.annotation)
@@ -57,11 +59,11 @@ class TCGAImageLoader(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        with open("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/{}/{}/{}".format(self.folder, self.image_type, self.annotation.iloc[idx, self.predictor_column]), 'rb') as f:
+        with open("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/{}/{}/5_dim_images/{}.dat".format(self.folder, self.image_type, self.annotation.iloc[idx, self.predictor_column]), 'rb') as f:
             x = pickle.load(f)
             f.close()
         y = np.array(self.annotation.iloc[idx, self.response_column], dtype="long")
         if self.transform:
             x = self.transform(x)
 
-        return x, y, self.annotation.iloc[idx,0]
+        return x, y, self.annotation.iloc[idx,0], self.annotation.iloc[idx, 7]

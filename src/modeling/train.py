@@ -1,5 +1,6 @@
 #!/usr/bin python3
-
+import os
+import pickle
 import sys
 
 import numpy as np
@@ -16,7 +17,9 @@ import json
 from Dataloader import TCGAImageLoader
 from train_util import return_model_and_cost_func
 
-sys.argv.append("config/cancer_type_square")
+#os.environ["WANDB_MODE"]="offline"
+
+sys.argv.append("config/metastatic_square")
 if len(sys.argv) == 1:
     print("You have to provide a path to a config file")
     quit(1)
@@ -39,7 +42,7 @@ image_type = config['image_type']# "SquereImg"
 predictor_column = config['predictor_column'] #
 response_column = config['response_column'] #11
 # Genome_As_Image_v2
-wandb.init(project="Genome_As_Image_v2", entity="mxs3203", name="{}_{}".format(config['run_name'],folder),reinit=True)
+wandb.init(project="Genome_As_Image_v3", entity="mxs3203", name="{}_{}".format(config['run_name'],folder),reinit=True)
 wandb.save(config_path)
 
 transform = transforms.Compose([transforms.ToTensor()])
@@ -47,8 +50,7 @@ dataset = TCGAImageLoader(config['meta_data'],
                           folder,
                           image_type,
                           predictor_column,
-                          response_column,
-                          filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA'])
+                          response_column)
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -85,14 +87,14 @@ def acc(y_hat, y):
     accuracy = corrects.sum().float() / float(y.size(0))
     return accuracy, winners
 
-def batch_train(x, y):
+def batch_train(x, y,type):
     net.train()
     cost_func.zero_grad()
     cost_func_reconstruct.zero_grad()
-    y_hat, reconstructed_img = net(x)
+    y_hat, reconstructed_img = net(x,type)
     if config['run_name'] != "Flatten":
         loss_reconstruct = cost_func_reconstruct(x, reconstructed_img)
-    y_probs = net.predict(x)
+    y_probs = net.predict(x, type)
     loss = cost_func(y_hat, y)
     accuracy, pred_classes = acc(y_hat, y)
     auc = 0
@@ -105,18 +107,18 @@ def batch_train(x, y):
         output_dict=True,
         zero_division=0)
     if config['run_name'] != "Flatten":
-        total_loss = (loss) # + (loss_reconstruct)
+        total_loss = (loss)  #+ (loss_reconstruct)
     else:
         total_loss = (loss)
     total_loss.backward()
     optimizer.step()
     return total_loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score'], auc
 
-def batch_valid(x, y):
+def batch_valid(x, y, type):
     with torch.no_grad():
         net.eval()
-        y_hat, reconstructed_img  = net(x)
-        y_probs = net.predict(x)
+        y_hat, reconstructed_img = net(x,type)
+        y_probs = net.predict(x, type)
         loss = cost_func(y_hat, y)
         if config['run_name'] != "Flatten":
             loss_reconstruct = cost_func_reconstruct(x, reconstructed_img)
@@ -150,14 +152,14 @@ val_losses = []
 for ep in range(epochs):
     batch_train_f1,batch_val_auc, batch_train_auc,\
     batch_train_loss, batch_val_f1, batch_val_loss = [],[],[],[],[],[]
-    for x, y_dat,id in trainLoader:
-        loss, acc_train, precision,recall,f1,train_auc = batch_train(x.cuda(), y_dat.cuda())
+    for x, y_dat,id,type in trainLoader:
+        loss, acc_train, precision,recall,f1,train_auc = batch_train(x.cuda(), y_dat.cuda(), type.cuda())
         batch_train_loss.append(loss)
         batch_train_f1.append(f1)
         batch_train_auc.append(train_auc)
 
-    for x, y_dat,id in valLoader:
-        loss, acc_val,  precision,recall,f1,val_auc = batch_valid(x.cuda(), y_dat.cuda())
+    for x, y_dat,id,type in valLoader:
+        loss, acc_val,  precision,recall,f1,val_auc = batch_valid(x.cuda(), y_dat.cuda(),type.cuda())
         batch_val_loss.append(loss)
         batch_val_f1.append(f1)
         batch_val_auc.append(val_auc)

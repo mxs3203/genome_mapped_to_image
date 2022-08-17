@@ -23,7 +23,7 @@ class Image:
         self.chr_exp_matrix = None
 
     def make_image_matrces(self):
-        img_size = 197
+        img_size = 198
         loss = np.zeros((img_size, img_size))
         gain = np.zeros((img_size, img_size))
         mut = np.zeros((img_size, img_size))
@@ -47,14 +47,15 @@ class Image:
         self.mut_matrix = np.asarray(mut, dtype="float32")
         self.methy_matrix = np.asarray(methy, dtype="float32")
 
-    def make_n_dim_image(self):
+    def make_5_dim_image(self):
         image = np.stack((self.gain_matrix, self.loss_matrix, self.mut_matrix, self.exp_matrix,  self.methy_matrix))
         return image
 
-    def make_n_dim_chr_image(self):
+    def make_5_dim_chr_image(self):
         image = np.stack((self.chr_gain_matrix, self.chr_loss_matrix, self.chr_mut_matrix,
                           self.chr_exp_matrix, self.chr_methy_matrix))
         return image
+
 
     def vector_of_all_features(self):
         tmp = np.append(self.gain_matrix.flatten(), self.loss_matrix.flatten())
@@ -62,13 +63,6 @@ class Image:
         tmp = np.append(tmp, self.exp_matrix.flatten())
         tmp = np.append(tmp, self.methy_matrix.flatten())
         return tmp
-
-    def transform_to_hilbert(self, iterations, dimens):
-        # hilbert_curve = HilbertCurve(iterations, dimens)
-        # vector = np.array(self.vector_of_all_features()*100, dtype="uint8")
-        # points = hilbert_curve.points_from_distances(vector)
-        # return np.array(points,dtype="float32")
-        return None
 
     def make_image_matrces_by_chr(self):
 
@@ -96,6 +90,20 @@ class Image:
         self.chr_gain_matrix = np.asarray(gain, dtype="float32")
         self.chr_mut_matrix = np.asarray(mut, dtype="float32")
         self.chr_methy_matrix = np.asarray(methy, dtype="float32")
+
+    def _3channel_square(self):
+        image = np.stack((self.mut_matrix, self.exp_matrix, self.methy_matrix))
+        return image
+
+    def _3channel_chr(self):
+        image = np.stack((self.chr_mut_matrix, self.chr_exp_matrix, self.chr_methy_matrix))
+        return image
+
+    def _3channel_flat(self):
+        tmp = np.append(self.mut_matrix.flatten(), self.exp_matrix.flatten())
+        tmp = np.append(tmp, self.methy_matrix.flatten())
+        return tmp
+
 
     def analyze_attribution(self, att_mat, n, type):
         mydict = {}

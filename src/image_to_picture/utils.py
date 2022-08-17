@@ -1,9 +1,8 @@
+import PIL
 import numpy as np
 import pandas as pd
-
-from Image import Image
-from ImageCell import ImageCell
-
+from src.image_to_picture.Image import Image
+from src.image_to_picture.ImageCell import ImageCell
 
 genes_per_chr = {'1': 3759, '10': 1593, '11': 2131, '12': 1867, '13': 930, '14': 1275,
                  '15': 1372, '16': 1530, '17': 1953, '18': 699, '19': 2057, '2': 2696,
@@ -15,7 +14,7 @@ def normalize_data(data, min, max):
     return (data - min) / (max - min)
 
 
-def make_image(id, met, all_genes, img_size=197):
+def make_image(id, met, all_genes, img_size=198):
     cnt = 0
     dict = {}
     for i in range(img_size):
@@ -35,7 +34,7 @@ def make_image(id, met, all_genes, img_size=197):
     return Image(id=id, met=met, dict_of_cells=dict)
 
 
-def make_image_chr(id, met, all_genes, chr_num=24, num_genes_chr1=3759):
+def make_image_chr(id, met, all_genes, chr_num=24, num_genes_chr1=3760):
     cnt = 0
     dict = {}
     for i, row in all_genes.iterrows():
@@ -59,7 +58,7 @@ def find_mutations(id, image, muts):
         for i, row in muts_tmp.iterrows():
             if row['Hugo_Symbol'] in image.dict_of_cells:
                 image.dict_of_cells[row['Hugo_Symbol']].mut_val = row['PolyPhen_num']
-        # print("\tFound ", muts_tmp.shape[0], "genes affected by mutation")
+        #print("\tFound ", muts_tmp.shape[0], "genes affected by mutation")
     return image
 
 
@@ -69,7 +68,7 @@ def find_gene_expression(id, image, gene_exp, min, max):
         exp = gene_exp[id]
         for i in range(len(genes)):
             if genes[i] in image.dict_of_cells:
-                # print(exp[i], " -> ", normalize_data(exp[i], min,max))
+               # print(exp[i], " -> ", normalize_data(exp[i], min,max))
                 image.dict_of_cells[genes[i]].exp_val = normalize_data(exp[i], min, max)
     return image
 
@@ -92,7 +91,7 @@ def find_losses(id, image, all_genes, ascat_loss):
             # print("\tFound ", len(genes_affected_partial2), "genes affected by partial loss(end)")
             for g in genes_affected:
                 if g in image.dict_of_cells:
-                    # print(row['log_r'], " -> ", normalize_data(row['log_r'],  ascat_loss['log_r'].max(), ascat_loss['log_r'].min()))
+                    #print(row['log_r'], " -> ", normalize_data(row['log_r'],  ascat_loss['log_r'].max(), ascat_loss['log_r'].min()))
                     image.dict_of_cells[g].loss_val = normalize_data(row['log_r'], ascat_loss['log_r'].max(),
                                                                      ascat_loss['log_r'].min())
 
@@ -110,7 +109,7 @@ def find_gains(id, image, all_genes, ascat_gains):
             # print("\tFound ", len(genes_affected), "genes affected by gain")
             for g in genes_affected:
                 if g in image.dict_of_cells:
-                    # print(row['log_r'], " -> ", normalize_data(row['log_r'], ascat_gains['log_r'].min(), ascat_gains['log_r'].max()))
+                    #print(row['log_r'], " -> ", normalize_data(row['log_r'], ascat_gains['log_r'].min(), ascat_gains['log_r'].max()))
                     image.dict_of_cells[g].gain_val = normalize_data(row['log_r'], ascat_gains['log_r'].min(),
                                                                      ascat_gains['log_r'].max())
 
@@ -128,19 +127,16 @@ def find_methylation(id, image, methy):
 
 
 def makeImages(x):
-    img_cin_g = x[0, 0, :, :]
+    img_cin_g = x[0, :, :]
     img_cin_g = img_cin_g.astype('uint8')
-    img_cin_l = x[0, 1, :, :]
+    img_cin_l = x[ 1, :, :]
     img_cin_l = img_cin_l.astype('uint8')
-    img_mut = x[0, 2, :, :]
+    img_mut = x[2, :, :]
     img_mut = img_mut.astype('uint8')
-    img_mut = Image.fromarray(img_mut, 'P')
-    img_cin_g = Image.fromarray(img_cin_g, 'P')
-    img_cin_l = Image.fromarray(img_cin_l, 'P')
-    total_img = np.dstack((img_cin_g, img_cin_l, img_mut))
-    total_img = Image.fromarray(total_img, 'RGB')
-    img_cin_g.save("cin_gain.png")
-    img_cin_l.save("cin_loss.png")
-    img_mut.save("mut.png")
-    total_img.save("total.png")
-    return img_cin_l, img_cin_g, img_mut
+    img_exp = x[3, :, :]
+    img_exp = img_exp.astype('uint8')
+    img_mety = x[4, :, :]
+    img_mety = img_mety.astype('uint8')
+
+
+    return img_cin_l, img_cin_g, img_mut, img_exp, img_mety

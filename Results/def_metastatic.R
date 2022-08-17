@@ -1,17 +1,18 @@
 library(tidyverse)
-
-files = list.files("TP53_data/SquareImg/n_dim_images/")
-files = unlist(lapply(files, function(x){
-  strsplit(x, "\\.")[[1]][1]
-}))
-a = meta_data_7k_samples %>% filter(id %in% files)
-write_delim(a, file = "meta_data_7k_samples_.csv",delim = ",")
-
+library(ggpubr)
+# make overal metadata file
 
 df = read.delim("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/TCGA_survival_data_clean.txt")
+ge = read.delim2("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/gene_exp_matrix.csv", sep = ",")
+
+### Metasatatic based on stage 
+df = read.delim("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/TCGA_survival_data_clean.txt")
+
+All_TCGA_CIN_measures = readRDS("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/All_TCGA_CIN_measures.rds")
 
 
 unique(df$clinical_stage )
+unique(df$ajcc_pathologic_tumor_stage )
 df$clinical_stage = as.character(df$clinical_stage)
 df$ajcc_pathologic_tumor_stage = as.character(df$ajcc_pathologic_tumor_stage)
 df$stage=case_when(
@@ -44,7 +45,11 @@ df$stage=case_when(
   df$clinical_stage == "III" ~ "Stage III",
   df$clinical_stage == "IIa" ~ "Stage II",
   df$clinical_stage == "IIb" ~ "Stage II",
-  df$clinical_stage == "IIc" ~ "Stage II"
+  df$clinical_stage == "IIc" ~ "Stage II",
+  df$clinical_stage == "[Discrepancy]" ~ "",
+  df$clinical_stage == "[Not Applicable]" ~ "",
+  df$clinical_stage == "[Unknown]" ~ "",
+  df$clinical_stage == "[Discrepancy] " ~ ""
 )
 df$stage2=case_when(
   df$ajcc_pathologic_tumor_stage  == "Stage I" ~ "Stage I",
@@ -76,8 +81,14 @@ df$stage2=case_when(
   df$ajcc_pathologic_tumor_stage == "III" ~ "Stage III",
   df$ajcc_pathologic_tumor_stage == "IIa" ~ "Stage II",
   df$ajcc_pathologic_tumor_stage == "IIb" ~ "Stage II",
-  df$ajcc_pathologic_tumor_stage == "IIc" ~ "Stage II"
+  df$ajcc_pathologic_tumor_stage == "IIc" ~ "Stage II",
+  df$ajcc_pathologic_tumor_stage == "[Discrepancy]" ~ "",
+  df$ajcc_pathologic_tumor_stage == "[Not Applicable]" ~ "",
+  df$ajcc_pathologic_tumor_stage == "[Unknown]" ~ "",
+  df$ajcc_pathologic_tumor_stage == "[Discrepancy] " ~ ""
 )
+df[which(df$stage == ""),"stage"] <- NA
+df[which(df$stage2 == ""),"stage2"] <- NA
 df$final_stage = unlist(apply(df, 1, function(x){
   if (!is.na(x["stage"])){
     x["stage"]
@@ -87,24 +98,107 @@ df$final_stage = unlist(apply(df, 1, function(x){
     NA
   }
 }))
-
-All_TCGA_CIN_measures = readRDS("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/All_TCGA_CIN_measures.rds")
-df$metastatic_one_two_three = ifelse(df$final_stage == "Stage IV", 1, 0)
+a = df %>% select(clinical_stage, ajcc_pathologic_tumor_stage,stage,stage2, final_stage)
+df = df %>% filter(!is.na(final_stage))
+df$metastatic_one_two_three = ifelse(df$final_stage %in% c("Stage IV", "Stage III"), 1, 0)
+df %>% 
+  filter(!is.na(metastatic_one_two_three)) %>%
+  dplyr::group_by(type) %>% 
+  dplyr::summarise(n = n(), 
+                   n_met = sum(metastatic_one_two_three == 1),
+                   percent = n_met/n) %>%
+  arrange(desc(percent))
 table(df$metastatic_one_two_three)
 
-df3 = merge(df, All_TCGA_CIN_measures %>% select(sample_id, wGII), by.x = "bcr_patient_barcode", by.y="sample_id")
+df3 = merge(df, All_TCGA_CIN_measures %>% select(sample_id, wGII), by.x = "bcr_patient_barcode", by.y="sample_id", all.x = T)
 
-df4 = df3 %>% select(bcr_patient_barcode, metastatic_one_two_three, age_at_initial_pathologic_diagnosis, type, gender, wGII)
-
-sum(is.na(df4))
-
-allowed_c_types = df4 %>% 
+df3 = df3 %>% select(bcr_patient_barcode, metastatic_one_two_three, age_at_initial_pathologic_diagnosis, type, gender, wGII)
+a = df3 %>% 
+  filter(!is.na(metastatic_one_two_three)) %>%
+  dplyr::group_by(type) %>% 
+  dplyr::summarise(n = n(), 
+                   n_met = sum(metastatic_one_two_three == 1),
+                   percent = n_met/n) %>%
+  arrange(desc(percent))
+a
+p1<- ggplot(a, aes(x = reorder(type, -percent), y  = percent)) +
+  geom_col()
+p2<-ggplot(a, aes(x = reorder(type, -n), y  = n)) +
+  geom_col()
+ggarrange(p1,p2)
+quantile(a$percent)
+allowed_c_types = df3 %>% 
   filter(!is.na(metastatic_one_two_three)) %>%
   group_by(type) %>% 
   summarise(n = n(), n_met = sum(metastatic_one_two_three == 1),
             percent = n_met/n) %>% 
   filter(n > 300) %>%
+  #filter(between(percent, 0.3, 0.7)) %>%
   arrange( desc(n_met)) 
-df4 = df4 %>% filter(type %in% allowed_c_types$type)
+df4 = df3 %>% filter(type %in% allowed_c_types$type)
 table(df4$metastatic_one_two_three)
-write_csv(df4, "~/Desktop/clinical_all_cancer_with_300_samples.csv")
+colnames(df4)[1] = "id"
+colnames(df4)[3] = "age"
+write_csv(df4, "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/corrected_metastatic_based_on_stages.csv")
+
+
+
+# PFI Version
+muts = read.delim("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/muts.csv", sep=",")
+muts = muts %>% group_by(sampleID) %>%
+   summarize(n = n(),
+             tp53 = ifelse(sum(Hugo_Symbol == "TP53") >= 1, 1, 0),
+             mean_poly = mean(PolyPhen_num))
+df = read.delim("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/TCGA_survival_data_clean.txt")
+df = merge(df, All_TCGA_CIN_measures %>% select(sample_id, wGII), by.x = "bcr_patient_barcode", by.y="sample_id", all.x = T)
+df = merge(df, muts %>% select(sampleID, tp53), by.x = "bcr_patient_barcode", by.y="sampleID", all.x = T)
+
+a = df %>% 
+  filter(!is.na(PFI)) %>%
+  dplyr::group_by(type) %>% 
+  dplyr::summarise(n = n(), 
+                   n_met = sum(PFI == 1),
+                   percent = n_met/n) %>%
+  filter(n > 400) %>%
+  arrange(desc(percent))
+
+p1<- ggplot(a, aes(x = reorder(type, -percent), y  = percent)) +
+  geom_col()
+p2<-ggplot(a, aes(x = reorder(type, -n), y  = n)) +
+  geom_col()
+ggarrange(p1,p2)
+
+quantile(a$percent, c(0.05, 0.95))
+
+allowed_c_types = a %>% filter(between(percent, 0.20, 0.70)) %>% select(type) 
+df4 = df %>% filter(type %in% allowed_c_types$type) %>%
+  filter(PFI != "N/A") %>%
+  select(bcr_patient_barcode, PFI, age_at_initial_pathologic_diagnosis, type, gender, wGII, tp53)
+table(df4$PFI)
+table(df4$tp53)
+write_csv(df4, "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/PFI_metadata.csv")
+
+
+# Using description 
+df = read.delim("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/TCGA_survival_data_clean.txt")
+unique(df$new_tumor_event_type)
+df$met = str_detect(as.character(df$new_tumor_event_type), "Meta")
+allowed_c_types = df %>% 
+  filter(!is.na(met)) %>%
+  dplyr::group_by(type) %>% 
+  dplyr::summarise(n = n(), 
+                   n_met = sum(met == 1),
+                   percent = n_met/n) %>%
+  filter(n > 300) %>%
+  arrange(desc(percent)) %>%
+  filter(between(percent, 0.1, 0.5))
+df4 = df %>% filter(type %in% allowed_c_types$type) %>%
+  filter(!is.na(met)) %>%
+  select(bcr_patient_barcode, met, age_at_initial_pathologic_diagnosis, type, gender)
+table(df4$met)
+colnames(df4)[1] = "id"
+colnames(df4)[3] = "age"
+df4$met = as.integer(df4$met)
+write_csv(df4, "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/Met_based_on_desc_metadata.csv")
+
+
