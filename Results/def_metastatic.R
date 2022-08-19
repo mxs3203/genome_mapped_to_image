@@ -1,9 +1,9 @@
 library(tidyverse)
 library(ggpubr)
-# make overal metadata file
-
-df = read.delim("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/TCGA_survival_data_clean.txt")
-ge = read.delim2("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/gene_exp_matrix.csv", sep = ",")
+encode_ordinal <- function(x, order = unique(x)) {
+  x <- as.numeric(factor(x, levels = order, exclude = NULL))
+  x
+}
 
 ### Metasatatic based on stage 
 df = read.delim("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/TCGA_survival_data_clean.txt")
@@ -98,6 +98,10 @@ df$final_stage = unlist(apply(df, 1, function(x){
     NA
   }
 }))
+c = df %>% filter(is.na(final_stage))
+df[which(is.na(df$final_stage) & df$new_tumor_event_type == "Distant Metastasis"), "final_stage"] <- "Stage IV"
+
+
 a = df %>% select(clinical_stage, ajcc_pathologic_tumor_stage,stage,stage2, final_stage)
 df = df %>% filter(!is.na(final_stage))
 df$metastatic_one_two_three = ifelse(df$final_stage %in% c("Stage IV", "Stage III"), 1, 0)
@@ -119,26 +123,36 @@ a = df3 %>%
   dplyr::summarise(n = n(), 
                    n_met = sum(metastatic_one_two_three == 1),
                    percent = n_met/n) %>%
-  arrange(desc(percent))
+  arrange(desc(percent)) %>%
+  filter(n > 400)
 a
 p1<- ggplot(a, aes(x = reorder(type, -percent), y  = percent)) +
-  geom_col()
+  geom_col() + 
+  theme_minimal() +
+  geom_hline(yintercept = 0.165, color = "red", linetype="dashed") + 
+  geom_hline(yintercept = 0.68, color = "red", linetype="dashed") +
+  theme(axis.text.x = element_text(angle = 90))
 p2<-ggplot(a, aes(x = reorder(type, -n), y  = n)) +
-  geom_col()
+  geom_col() + 
+  theme_minimal() +
+  geom_hline(yintercept = 300, color = "red",linetype="dashed") + 
+  theme(axis.text.x = element_text(angle = 90))
 ggarrange(p1,p2)
-quantile(a$percent)
+quantile(a$percent, c(0.15, 0.85))
 allowed_c_types = df3 %>% 
   filter(!is.na(metastatic_one_two_three)) %>%
   group_by(type) %>% 
   summarise(n = n(), n_met = sum(metastatic_one_two_three == 1),
             percent = n_met/n) %>% 
-  filter(n > 300) %>%
-  #filter(between(percent, 0.3, 0.7)) %>%
+  filter(n > 400) %>%
+  #filter(between(percent, 0.21, 0.70)) %>% # quantile(a$percent, c(0.1, 0.9))
   arrange( desc(n_met)) 
+allowed_c_types
 df4 = df3 %>% filter(type %in% allowed_c_types$type)
 table(df4$metastatic_one_two_three)
 colnames(df4)[1] = "id"
 colnames(df4)[3] = "age"
+df4$type_enc = encode_ordinal(df4$type)
 write_csv(df4, "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/corrected_metastatic_based_on_stages.csv")
 
 
@@ -159,37 +173,43 @@ a = df %>%
   dplyr::summarise(n = n(), 
                    n_met = sum(PFI == 1),
                    percent = n_met/n) %>%
-  filter(n > 400) %>%
+  filter(n > 400) %>% 
   arrange(desc(percent))
-
+a
 p1<- ggplot(a, aes(x = reorder(type, -percent), y  = percent)) +
   geom_col()
 p2<-ggplot(a, aes(x = reorder(type, -n), y  = n)) +
   geom_col()
 ggarrange(p1,p2)
 
-quantile(a$percent, c(0.05, 0.95))
-
-allowed_c_types = a %>% filter(between(percent, 0.20, 0.70)) %>% select(type) 
+quantile(a$percent, c(0.1, 0.9))
+# take top 10 cancer types with at least 300 samples
+allowed_c_types = a %>% filter(between(percent, 0.153, 0.68)) %>% select(type) 
 df4 = df %>% filter(type %in% allowed_c_types$type) %>%
   filter(PFI != "N/A") %>%
-  select(bcr_patient_barcode, PFI, age_at_initial_pathologic_diagnosis, type, gender, wGII, tp53)
+  select(bcr_patient_barcode, PFI, age_at_initial_pathologic_diagnosis, type, gender, wGII)
 table(df4$PFI)
 table(df4$tp53)
+colnames(df4)[1] = "id"
+colnames(df4)[3] = "age"
+
 write_csv(df4, "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/PFI_metadata.csv")
 
 
 # Using description 
 df = read.delim("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/TCGA_survival_data_clean.txt")
 unique(df$new_tumor_event_type)
+
 df$met = str_detect(as.character(df$new_tumor_event_type), "Meta")
+
+
 allowed_c_types = df %>% 
   filter(!is.na(met)) %>%
   dplyr::group_by(type) %>% 
   dplyr::summarise(n = n(), 
                    n_met = sum(met == 1),
                    percent = n_met/n) %>%
-  filter(n > 300) %>%
+  filter(n > 400) %>%
   arrange(desc(percent)) %>%
   filter(between(percent, 0.1, 0.5))
 df4 = df %>% filter(type %in% allowed_c_types$type) %>%

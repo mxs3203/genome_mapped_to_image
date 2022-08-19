@@ -44,6 +44,7 @@ response_column = config['response_column'] #11
 # Genome_As_Image_v2
 wandb.init(project="Genome_As_Image_v3", entity="mxs3203", name="{}_{}".format(config['run_name'],folder),reinit=True)
 wandb.save(config_path)
+wandb.save("/home/mateo/pytorch_docker/TCGA_GenomeImage/src/AutoEncoder/AE_Square.py")
 
 transform = transforms.Compose([transforms.ToTensor()])
 dataset = TCGAImageLoader(config['meta_data'],
@@ -92,8 +93,7 @@ def batch_train(x, y,type):
     cost_func.zero_grad()
     cost_func_reconstruct.zero_grad()
     y_hat, reconstructed_img = net(x,type)
-    if config['run_name'] != "Flatten":
-        loss_reconstruct = cost_func_reconstruct(x, reconstructed_img)
+
     y_probs = net.predict(x, type)
     loss = cost_func(y_hat, y)
     accuracy, pred_classes = acc(y_hat, y)
@@ -106,10 +106,7 @@ def batch_train(x, y,type):
         y_pred=pred_classes.cpu().detach().numpy(),
         output_dict=True,
         zero_division=0)
-    if config['run_name'] != "Flatten":
-        total_loss = (loss)  #+ (loss_reconstruct)
-    else:
-        total_loss = (loss)
+    total_loss = (loss)
     total_loss.backward()
     optimizer.step()
     return total_loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score'], auc
@@ -120,8 +117,7 @@ def batch_valid(x, y, type):
         y_hat, reconstructed_img = net(x,type)
         y_probs = net.predict(x, type)
         loss = cost_func(y_hat, y)
-        if config['run_name'] != "Flatten":
-            loss_reconstruct = cost_func_reconstruct(x, reconstructed_img)
+
         accuracy, pred_classes = acc(y_hat, y)
         auc = 0
         if config['trainer'] != "multi-class":
@@ -132,10 +128,8 @@ def batch_valid(x, y, type):
             y_pred=pred_classes.cpu().detach().numpy(),
             output_dict=True,
             zero_division=0)
-        if config['run_name'] != "Flatten":
-            total_loss = (loss) #+ (loss_reconstruct)
-        else:
-            total_loss = loss
+
+        total_loss = loss
         return total_loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score'], auc
 
 def saveModel(ep, optimizer, loss):
@@ -144,8 +138,8 @@ def saveModel(ep, optimizer, loss):
         'model_state_dict': best_model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': loss
-    }, "checkpoints/{}_{}_{}.pb".format(ep, image_type, folder))
-    wandb.save("checkpoints/{}_{}_{}.pb".format(ep, image_type, folder))
+    }, "/home/mateo/pytorch_docker/TCGA_GenomeImage/src/modeling/checkpoints/{}_{}_{}.pb".format(ep, image_type, folder.replace("/","_")))
+    wandb.save("/home/mateo/pytorch_docker/TCGA_GenomeImage/src/modeling/checkpoints/{}_{}_{}.pb".format(ep, image_type, folder.replace("/","_")))
 
 train_losses = []
 val_losses = []
@@ -186,7 +180,7 @@ for ep in range(epochs):
                    "Test/loss": np.mean(batch_val_loss),
                    "Test/F1": np.mean(batch_val_f1)})
 
-    if (np.mean(batch_train_f1) >= config['save_model_score'] and np.mean(batch_val_f1) >= config['save_model_score']):
+    if (np.mean(batch_train_auc) >= config['save_model_score'] and np.mean(batch_val_auc) >= config['save_model_score']):
         saveModel(ep, optimizer, np.mean(batch_val_loss))
     if np.mean(batch_val_loss) > last_loss:
         trigger_times += 1

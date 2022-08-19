@@ -66,4 +66,4 @@ class TCGAImageLoader(Dataset):
         if self.transform:
             x = self.transform(x)
 
-        return x, y, self.annotation.iloc[idx,0], self.annotation.iloc[idx, 7]
+        return x, y, self.annotation.iloc[idx,0], self.annotation.iloc[idx, 6]
