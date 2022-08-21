@@ -13,7 +13,7 @@ from torchvision.transforms import transforms
 from src.modeling.Dataloader import TCGAImageLoader
 from src.modeling.train_util import return_model_and_cost_func_numeric
 
-sys.argv.append("config/age_chr")
+sys.argv.append("config/wGII_square")
 if len(sys.argv) == 1:
     print("You have to provide a path to a config file")
     quit(1)
@@ -36,7 +36,7 @@ image_type = config['image_type']# "SquereImg"
 predictor_column = config['predictor_column'] #
 response_column = config['response_column'] #11
 # Genome_As_Image_v2
-wandb.init(project="Genome_As_Image_v2", entity="mxs3203", name="{}_{}".format(config['run_name'],folder),reinit=True)
+wandb.init(project="Genome_As_Image_v3", entity="mxs3203", name="{}_{}".format(config['run_name'],folder),reinit=True)
 wandb.save(config_path)
 
 transform = transforms.Compose([transforms.ToTensor()])
@@ -44,8 +44,8 @@ dataset = TCGAImageLoader(config['meta_data'],
                           folder,
                           image_type,
                           predictor_column,
-                          response_column,
-                          filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC', 'STAD', 'BLCA'])
+                          response_column)
+
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -81,10 +81,7 @@ def batch_train(x, y):
     cost_func_reconstruct.zero_grad()
     y_hat, reconstructed_img = net(x)
     loss = cost_func(y_hat.squeeze(), y.float())
-    if config['run_name'] != "Flatten":
-        total_loss = (loss) + (cost_func_reconstruct(x, reconstructed_img))
-    else :
-        total_loss = loss
+    total_loss = loss
     mse = mean_squared_error(y_true=y.cpu().detach(), y_pred=y_hat.cpu().detach())
 
     total_loss.backward()
@@ -97,18 +94,20 @@ def saveModel(ep, optimizer, loss):
         'model_state_dict': best_model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': loss
-    }, "checkpoints/{}_{}_{}.pb".format(ep, image_type, folder))
-    wandb.save("checkpoints/{}_{}_{}.pb".format(ep, image_type, folder))
+    }, "/home/mateo/pytorch_docker/TCGA_GenomeImage/src/modeling/checkpoints/{}_{}_{}.pb".format(ep, image_type,
+                                                                                                 folder.replace("/",
+                                                                                                                "_")))
+    wandb.save("/home/mateo/pytorch_docker/TCGA_GenomeImage/src/modeling/checkpoints/{}_{}_{}.pb".format(ep, image_type,
+                                                                                                         folder.replace(
+                                                                                                             "/", "_")))
+
 
 def batch_valid(x, y):
     with torch.no_grad():
         net.eval()
         y_hat,reconstructed_img = net(x)
         loss = cost_func(y_hat.squeeze(), y.float())
-        if config['run_name'] != "Flatten":
-            total_loss = (loss) + (cost_func_reconstruct(x, reconstructed_img))
-        else:
-            total_loss = loss
+        total_loss = loss
         mse = mean_squared_error(y_true=y.cpu().detach(), y_pred=y_hat.cpu().detach())
         return total_loss.item(), mse, np.sqrt(mse)
 
@@ -117,12 +116,12 @@ train_losses = []
 val_losses = []
 for ep in range(epochs):
     batch_train_mse, batch_val_mse,batch_train_loss,  batch_val_loss , batch_val_rmse, batch_train_rmse = [],[],[],[],[],[]
-    for x,y_dat, id  in trainLoader:
+    for x,y_dat, id,type  in trainLoader:
         loss,mse,rmse = batch_train(x.cuda(), y_dat.cuda())
         batch_train_loss.append(loss)
         batch_train_mse.append(mse)
         batch_train_rmse.append(rmse)
-    for x,y_dat, id  in valLoader:
+    for x,y_dat, id ,type in valLoader:
         loss,mse,rmse = batch_valid(x.cuda(), y_dat.cuda())
         batch_val_loss.append(loss)
         batch_val_mse.append(mse)
@@ -146,7 +145,7 @@ for ep in range(epochs):
         best_loss = np.mean(batch_val_loss)
         best_model = net
         print("Best loss! ")
-    if (np.mean(batch_train_mse) <= config['save_model_score'] and np.mean(batch_val_mse) <= config['save_model_score']):
+    if (np.mean(batch_train_rmse) <= config['save_model_score'] and np.mean(batch_val_rmse) <= config['save_model_score']):
         saveModel(ep, optimizer, np.mean(batch_val_loss))
     if np.mean(batch_val_loss) > last_loss:
         trigger_times += 1

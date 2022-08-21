@@ -19,7 +19,7 @@ from train_util import return_model_and_cost_func
 
 #os.environ["WANDB_MODE"]="offline"
 
-sys.argv.append("config/metastatic_square")
+sys.argv.append("config/cancer_type_square")
 if len(sys.argv) == 1:
     print("You have to provide a path to a config file")
     quit(1)
@@ -88,13 +88,13 @@ def acc(y_hat, y):
     accuracy = corrects.sum().float() / float(y.size(0))
     return accuracy, winners
 
-def batch_train(x, y,type):
+def batch_train(x, y):
     net.train()
     cost_func.zero_grad()
     cost_func_reconstruct.zero_grad()
-    y_hat, reconstructed_img = net(x,type)
+    y_hat, reconstructed_img = net(x)
 
-    y_probs = net.predict(x, type)
+    y_probs = net.predict(x)
     loss = cost_func(y_hat, y)
     accuracy, pred_classes = acc(y_hat, y)
     auc = 0
@@ -111,11 +111,11 @@ def batch_train(x, y,type):
     optimizer.step()
     return total_loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score'], auc
 
-def batch_valid(x, y, type):
+def batch_valid(x, y):
     with torch.no_grad():
         net.eval()
-        y_hat, reconstructed_img = net(x,type)
-        y_probs = net.predict(x, type)
+        y_hat, reconstructed_img = net(x)
+        y_probs = net.predict(x)
         loss = cost_func(y_hat, y)
 
         accuracy, pred_classes = acc(y_hat, y)
@@ -147,13 +147,13 @@ for ep in range(epochs):
     batch_train_f1,batch_val_auc, batch_train_auc,\
     batch_train_loss, batch_val_f1, batch_val_loss = [],[],[],[],[],[]
     for x, y_dat,id,type in trainLoader:
-        loss, acc_train, precision,recall,f1,train_auc = batch_train(x.cuda(), y_dat.cuda(), type.cuda())
+        loss, acc_train, precision,recall,f1,train_auc = batch_train(x.cuda(), y_dat.cuda())
         batch_train_loss.append(loss)
         batch_train_f1.append(f1)
         batch_train_auc.append(train_auc)
 
     for x, y_dat,id,type in valLoader:
-        loss, acc_val,  precision,recall,f1,val_auc = batch_valid(x.cuda(), y_dat.cuda(),type.cuda())
+        loss, acc_val,  precision,recall,f1,val_auc = batch_valid(x.cuda(), y_dat.cuda())
         batch_val_loss.append(loss)
         batch_val_f1.append(f1)
         batch_val_auc.append(val_auc)
@@ -180,7 +180,7 @@ for ep in range(epochs):
                    "Test/loss": np.mean(batch_val_loss),
                    "Test/F1": np.mean(batch_val_f1)})
 
-    if (np.mean(batch_train_auc) >= config['save_model_score'] and np.mean(batch_val_auc) >= config['save_model_score']):
+    if (np.mean(batch_train_f1) >= config['save_model_score'] and np.mean(batch_val_f1) >= config['save_model_score']):
         saveModel(ep, optimizer, np.mean(batch_val_loss))
     if np.mean(batch_val_loss) > last_loss:
         trigger_times += 1

@@ -39,54 +39,53 @@ def show_data(x, y):
 all_genes = pd.read_csv("../data/raw_data/all_genes_ordered_by_chr.csv")
 #all_genes = all_genes[all_genes['name2'] != "TP53"]
 # Script Params
-cancer_types =['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA'] # ['KIRC','STAD', 'UCEC','BLCA', , 'OV', 'DLBC', 'COAD']
+cancer_types = ['LUSC','LUAD', 'UCEC', 'THCA', 'COAD', 'SKCM', 'BLCA', 'KIRC', 'STAD', 'BRCA', 'OV', 'HNSC']
 # Read this from Metadata!!
 image_type = "SquareImg"
-folder = "Metastatic_data"
-predictor_column = 3 # 3=n_dim_img,4=flatten
-response_column = 5 # 5=met,6=wgii,7=tp53, 9= type
+folder = "TCGA_Square_Imgs/Metastatic_data"
+predictor_column = 0
+response_column = 9
 
 # Model Params
-net = AE(output_size=2)
-LR = 9.900000000000001e-05
-checkpoint = torch.load("../src/modeling/models/v2/223_SquareImg_Metastatic_data.pb")
-optimizer = torch.optim.Adagrad(net.parameters(), lr_decay= 1e-6, lr=LR, weight_decay= 1e-6)
+net = AE(output_size=12)
+LR = 9.700000e-5
+checkpoint = torch.load("../src/modeling/models/v3/56_SquareImg_TCGA_Square_Imgs_RandCancerType.pb")
+optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=1e-6, lr=LR, weight_decay=1e-5)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 net.eval()
 
-dataset = TCGAImageLoader("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/main_meta_data.csv",
-                          folder, image_type, predictor_column, response_column,
-                          filter_by_type=['OV', 'COAD', 'UCEC', 'KIRC','STAD', 'BLCA'] )
+dataset = TCGAImageLoader("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/corrected_metastatic_based_on_stages.csv",
+                          folder, image_type, predictor_column, response_column)
 trainLoader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=False)
 
-arr = np.empty((0, 128), float)
+arr = np.empty((0, 4608), float)
 ids = []
 true_y = []
 pred_y = []
-for x, y_dat, id in trainLoader:
-    #encoded_genome = net.encode(x)
+for x, y_dat, id,type in trainLoader:
+    encoded_genome = net.encode(x)
     id = np.array(id)
     ids = np.concatenate((ids, id))
-    #arr = np.append(arr, encoded_genome.detach().numpy(), axis=0)
+    arr = np.append(arr, encoded_genome.detach().numpy(), axis=0)
 
-    y, decoded = net(x)
-    probs = torch.softmax(y, dim=1)
-    winners = probs.argmax(dim=1)
-    true_y.append(y_dat.detach().numpy())
-    pred_y.append(winners.detach().numpy())
+    # y = net(x)
+    # probs = torch.softmax(y, dim=1)
+    # winners = probs.argmax(dim=1)
+    # true_y.append(y_dat.detach().numpy())
+    # pred_y.append(winners.detach().numpy())
 
 
-df = DataFrame()
+# df = DataFrame()
+# df['sampleid'] = ids
+# df['true_y'] = true_y
+# df['pred_y'] = pred_y
+# print(df)
+# df.to_csv("../Results/V3/CancerType/confusion_matrix.csv")
+
+
+df = DataFrame(arr)
 df['sampleid'] = ids
-df['true_y'] = true_y
-df['pred_y'] = pred_y
-print(df)
-df.to_csv("../Results/V2/Metastatic/confusion_matrix.csv")
-
-
-#df = DataFrame(arr)
-#df['sampleid'] = ids
-#df.to_csv("../Results/V2/RandomCancerType/encoded_genomes.csv")
+df.to_csv("../Results/V3/RandCancerType/encoded_genomes.csv")
 
 

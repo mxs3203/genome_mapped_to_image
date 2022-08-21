@@ -14,11 +14,11 @@ from src.image_to_picture.utils import make_image
 
 
 def makeImages(x):
-    img_cin_g = x[0, 0, :, :]
-    img_cin_l = x[0, 1, :, :]
-    img_mut = x[0, 2, :, :]
-    img_exp = x[0, 3, :, :]
-    img_meth = x[0, 4, :, :]
+    img_cin_g = x[0, :, :]
+    img_cin_l = x[1, :, :]
+    img_mut = x[ 2, :, :]
+    img_exp = x[3, :, :]
+    img_meth = x[ 4, :, :]
     img_exp = Image.fromarray(img_exp, 'L')
     img_mut = Image.fromarray(img_mut, 'L')
     img_cin_g = Image.fromarray(img_cin_g, 'L')
@@ -42,19 +42,19 @@ def show_data(x, y):
 all_genes = pd.read_csv("../data/raw_data/all_genes_ordered_by_chr.csv")
 #all_genes = all_genes[all_genes['name2'] != "TP53"]
 # Script Params
-cancer_types =['UCEC','OV', 'COAD',  'KIRC','STAD', 'BLCA'] # ['KIRC','STAD', 'UCEC','BLCA', , 'OV', 'DLBC', 'COAD']
 # Read this from Metadata!!
 image_type = "SquareImg"
-folder = "Metastatic_data"
-folder_for_res = "Age"
-predictor_column = 3 # 3=n_dim_img,4=flatten
-response_column = 11 # 5=met,6=wgii,7=tp53, 9=type
+folder = "TCGA_Square_Imgs/Metastatic_data"
+folder_for_res = "Metastatic"
+predictor_column = 0
+response_column = 9
+cancer_types = ['LUSC','LUAD', 'UCEC', 'THCA', 'COAD', 'SKCM', 'BLCA', 'KIRC', 'STAD', 'BRCA', 'OV', 'HNSC']
 
 # Model Params
-net = AE(output_size=1)
-LR = 9.900000000000001e-05
-checkpoint = torch.load("../src/modeling/models/v2/47_SquareImg_age.pb")
-optimizer = torch.optim.Adagrad(net.parameters(), lr_decay= 1e-6, lr=LR, weight_decay= 1e-6)
+net = AE(output_size=12)
+LR = 9.700000e-05
+checkpoint = torch.load("../src/modeling/models/v3/56_SquareImg_TCGA_Square_Imgs_RandCancerType.pb")
+optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=1e-6, lr=LR, weight_decay=1e-5)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 net.eval()
@@ -66,8 +66,11 @@ for type in cancer_types:
 
     type = str(type)
     # load the data
-    dataset = TCGAImageLoader("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/main_meta_data.csv",
-                              folder, image_type, predictor_column, response_column,
+    dataset = TCGAImageLoader("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/corrected_metastatic_based_on_stages.csv",
+                              folder,
+                              image_type,
+                              predictor_column,
+                              response_column,
                               filter_by_type=[type])
     trainLoader = DataLoader(dataset, batch_size=1, num_workers=10, shuffle=False)
     print(type, "Samples: ", len(trainLoader))
@@ -79,12 +82,11 @@ for type in cancer_types:
     heatmaps_exp = []
 
     # iterate sample by samples
-    for x, y_dat , id in trainLoader:
-        #print("ID: ", id)
-        #print("\t",d)
-        #show_data(x, met_1_2_3)
+    for x, y_dat , id, t in trainLoader:
+        print("ID: ", id)
+        #show_data(x, y_dat)
         baseline = torch.zeros((1, x.shape[1], x.shape[2], x.shape[3]))
-        attribution = occlusion.attribute(x, baseline)
+        attribution = occlusion.attribute(x, baseline,target=int(y_dat))
         attribution = attribution.squeeze().cpu().detach().numpy()
         heatmaps_gains.append(np.abs(attribution[0, :, :]))
         heatmaps_loss.append(np.abs(attribution[1, :, :]))
@@ -125,5 +127,5 @@ for type in cancer_types:
     meth_att = image.analyze_attribution(mean_meth_matrix, number_of_genes_returned, "Methylation")
 
     total_df = pd.concat([exp_att,mut_att,gain_att,loss_att, meth_att])
-    total_df.to_csv("../Results/V2/{}/Square/{}_{}_{}_top_{}.csv".format(folder_for_res,type, image_type, folder_for_res, number_of_genes_returned))
+    total_df.to_csv("/home/mateo/pytorch_docker/TCGA_GenomeImage/Results/V3/{}/Square/{}_{}_{}_top_{}.csv".format(folder_for_res,type, image_type, folder_for_res, number_of_genes_returned))
 

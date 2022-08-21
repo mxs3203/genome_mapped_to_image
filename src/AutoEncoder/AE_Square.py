@@ -7,7 +7,7 @@ from src.AutoEncoder.AE_util import UnFlatten
 class AE(nn.Module):
     def __init__(self, output_size, image_channels=5):
         super(AE, self).__init__()
-        base_scale_channel = 30
+        base_scale_channel = 32
 
         self.denosiser = nn.Sequential(
             nn.AdaptiveAvgPool3d((5, 66, 66))
@@ -40,7 +40,7 @@ class AE(nn.Module):
             nn.AdaptiveAvgPool3d((1, 66, 66))
         )
 
-        extractor_channels = 5
+        extractor_channels = 8
         self.extractor = nn.Sequential(
             nn.BatchNorm2d(1),
             nn.Conv2d(1, extractor_channels, kernel_size=(3, 3), stride=3, padding=2),
@@ -64,8 +64,8 @@ class AE(nn.Module):
             nn.Linear(128, output_size)
         )
 
-    def predict(self, x, type):
-        x = self.forward(x,type)
+    def predict(self, x):
+        x = self.forward(x)
         return x
 
     def encode(self, x):
@@ -73,9 +73,7 @@ class AE(nn.Module):
         x_enc_flat = x_enc.view(x_enc.size(0), -1)
         return x_enc_flat
 
-    def forward(self, x, type):
-        #type = type.unsqueeze(0).to(torch.int64)
-        #one_hot_type = torch.nn.functional.one_hot(type).squeeze(0)
+    def forward(self, x):
         x = self.denosiser(x)
         x_enc = self.encoder(x)
         x_enc_flat = x_enc.view(x_enc.size(0), -1)
@@ -84,6 +82,5 @@ class AE(nn.Module):
         x = self.extractor(x_dec)
         x = x.view(x.size(0), -1)
         x = torch.cat([x, x_enc_flat], dim=1)
-        #x = torch.cat([x, one_hot_type], dim=1)
         x = self.predictor(x)
-        return x, x_dec
+        return x #, x_dec

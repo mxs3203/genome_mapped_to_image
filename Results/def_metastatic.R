@@ -184,7 +184,9 @@ ggarrange(p1,p2)
 
 quantile(a$percent, c(0.1, 0.9))
 # take top 10 cancer types with at least 300 samples
-allowed_c_types = a %>% filter(between(percent, 0.153, 0.68)) %>% select(type) 
+allowed_c_types = a %>% 
+  filter(between(percent, 0.153, 0.68)) %>% 
+  select(type) 
 df4 = df %>% filter(type %in% allowed_c_types$type) %>%
   filter(PFI != "N/A") %>%
   select(bcr_patient_barcode, PFI, age_at_initial_pathologic_diagnosis, type, gender, wGII)

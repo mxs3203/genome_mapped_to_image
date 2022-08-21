@@ -1,17 +1,17 @@
 {
-  "LR": 9.900000000000001e-05,
-  "batch_size": 256,
+  "LR": 9.700000e-04,
+  "batch_size": 512,
   "lr_decay": 1e-6,
-  "weight_decay": 1e-6,
+  "weight_decay": 1e-4,
   "epochs": 500,
-  "start_of_lr_decrease": 90,
-  "folder": "Metastatic_data",
+  "start_of_lr_decrease": 60,
+  "folder": "TCGA_Square_Imgs/Metastatic_data",
   "image_type": "SquareImg",
-  "predictor_column": 3,
-  "response_column": 9,
+  "predictor_column": 0,
+  "response_column": 7,
   "run_name": "Square",
   "trainer": "multi-class",
-  "save_model_score": 0.5,
-  "early_stop_patience": 5,
-  "meta_data": "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/main_meta_data.csv"
+  "save_model_score": 0.9,
+  "early_stop_patience": 9,
+  "meta_data": "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/corrected_metastatic_based_on_stages.csv"
 }
