@@ -44,16 +44,16 @@ all_genes = pd.read_csv("../data/raw_data/all_genes_ordered_by_chr.csv")
 # Script Params
 # Read this from Metadata!!
 image_type = "SquareImg"
-folder = "TCGA_Square_Imgs/Metastatic_data"
+folder = "TCGA_Square_Imgs_the_harshest/Metastatic_data"
 folder_for_res = "Metastatic"
 predictor_column = 0
-response_column = 9
+response_column = 1
 cancer_types = ['LUSC','LUAD', 'UCEC', 'THCA', 'COAD', 'SKCM', 'BLCA', 'KIRC', 'STAD', 'BRCA', 'OV', 'HNSC']
 
 # Model Params
-net = AE(output_size=12)
-LR = 9.700000e-05
-checkpoint = torch.load("../src/modeling/models/v3/56_SquareImg_TCGA_Square_Imgs_RandCancerType.pb")
+net = AE(output_size=2)
+LR = 9.700e-5
+checkpoint = torch.load("/home/mateo/pytorch_docker/TCGA_GenomeImage/src/modeling/models/v3/150_SquareImg_TCGA_SquareImg3D_Metastic_KL.pb")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=1e-6, lr=LR, weight_decay=1e-5)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -72,60 +72,62 @@ for type in cancer_types:
                               predictor_column,
                               response_column,
                               filter_by_type=[type])
-    trainLoader = DataLoader(dataset, batch_size=1, num_workers=10, shuffle=False)
-    print(type, "Samples: ", len(trainLoader))
-    # prepare empty lists
-    heatmaps_meth = []
-    heatmaps_loss = []
-    heatmaps_gains = []
-    heatmaps_mut = []
-    heatmaps_exp = []
+    if dataset.annotation.shape[0] != 0:
+        trainLoader = DataLoader(dataset, batch_size=1, num_workers=10, shuffle=False)
+        print(type, "Samples: ", len(trainLoader))
+        # prepare empty lists
+        heatmaps_meth = []
+        heatmaps_loss = []
+        heatmaps_gains = []
+        heatmaps_mut = []
+        heatmaps_exp = []
 
-    # iterate sample by samples
-    for x, y_dat , id, t in trainLoader:
-        print("ID: ", id)
-        #show_data(x, y_dat)
-        baseline = torch.zeros((1, x.shape[1], x.shape[2], x.shape[3]))
-        attribution = occlusion.attribute(x, baseline,target=int(y_dat))
-        attribution = attribution.squeeze().cpu().detach().numpy()
-        heatmaps_gains.append(np.abs(attribution[0, :, :]))
-        heatmaps_loss.append(np.abs(attribution[1, :, :]))
-        heatmaps_mut.append(np.abs(attribution[2, :, :]))
-        heatmaps_exp.append(np.abs(attribution[3, :, :]))
-        heatmaps_meth.append(np.abs(attribution[4, :, :]))
+        # iterate sample by samples
+        for x, y_dat , id, t in trainLoader:
+            print("ID: ", id)
+            #show_data(x, y_dat)
+            baseline = torch.zeros((1, x.shape[1], x.shape[2], x.shape[3]))
+            attribution = occlusion.attribute(x, baseline, target=int(y_dat))
+            attribution = attribution.squeeze().cpu().detach().numpy()
+            #heatmaps_gains.append(np.abs(attribution[0, :, :]))
+            #heatmaps_loss.append(np.abs(attribution[1, :, :]))
+            heatmaps_mut.append(np.abs(attribution[0, :, :]))
+            heatmaps_exp.append(np.abs(attribution[1, :, :]))
+            heatmaps_meth.append(np.abs(attribution[2, :, :]))
 
-    # make a mean value for every gene for loses, gains, etc...
-    heatmaps_loss = np.array(heatmaps_loss)
-    mean_loss_matrix = heatmaps_loss.mean(axis=0)
-    ax = sns.heatmap(mean_loss_matrix, cmap="YlGnBu")
-    #plt.show()
-    heatmaps_gains = np.array(heatmaps_gains)
-    mean_gain_matrix = heatmaps_gains.mean(axis=0)
-    ax = sns.heatmap(mean_gain_matrix, cmap="YlGnBu")
-    #plt.show()
-    heatmaps_mut = np.array(heatmaps_mut)
-    mean_mut_matrix = heatmaps_mut.mean(axis=0)
-    ax = sns.heatmap(mean_mut_matrix, cmap="YlGnBu")
-    #plt.show()
+        # make a mean value for every gene for loses, gains, etc...
+        # heatmaps_loss = np.array(heatmaps_loss)
+        # mean_loss_matrix = heatmaps_loss.mean(axis=0)
+        # ax = sns.heatmap(mean_loss_matrix, cmap="YlGnBu")
+        # #plt.show()
+        # heatmaps_gains = np.array(heatmaps_gains)
+        # mean_gain_matrix = heatmaps_gains.mean(axis=0)
+        # ax = sns.heatmap(mean_gain_matrix, cmap="YlGnBu")
+        #plt.show()
+        heatmaps_mut = np.array(heatmaps_mut)
+        mean_mut_matrix = heatmaps_mut.mean(axis=0)
+        #ax = sns.heatmap(mean_mut_matrix, cmap="YlGnBu")
+        #plt.show()
 
-    heatmaps_exp = np.array(heatmaps_exp)
-    mean_exp_matrix = heatmaps_exp.mean(axis=0)
-    ax = sns.heatmap(mean_exp_matrix, cmap="YlGnBu")
-    #plt.show()
-    heatmaps_meth = np.array(heatmaps_meth)
-    mean_meth_matrix = heatmaps_meth.mean(axis=0)
-    ax = sns.heatmap(mean_meth_matrix, cmap="YlGnBu")
-    #plt.show()
+        heatmaps_exp = np.array(heatmaps_exp)
+        mean_exp_matrix = heatmaps_exp.mean(axis=0)
+        #ax = sns.heatmap(mean_exp_matrix, cmap="YlGnBu")
+        #plt.show()
+        heatmaps_meth = np.array(heatmaps_meth)
+        mean_meth_matrix = heatmaps_meth.mean(axis=0)
+        #ax = sns.heatmap(mean_meth_matrix, cmap="YlGnBu")
+        #plt.show()
 
-    number_of_genes_returned = all_genes.shape[0]-1
+        number_of_genes_returned = all_genes.shape[0]-1
 
-    image = make_image("ID", 1, all_genes)
-    exp_att = image.analyze_attribution(mean_exp_matrix, number_of_genes_returned, "Expression")
-    mut_att = image.analyze_attribution(mean_mut_matrix, number_of_genes_returned, "Mutation")
-    gain_att = image.analyze_attribution(mean_gain_matrix, number_of_genes_returned, "Gain")
-    loss_att = image.analyze_attribution(mean_loss_matrix, number_of_genes_returned, "Loss")
-    meth_att = image.analyze_attribution(mean_meth_matrix, number_of_genes_returned, "Methylation")
+        image = make_image("ID", 1, all_genes)
+        exp_att = image.analyze_attribution(mean_exp_matrix, number_of_genes_returned, "Expression")
+        mut_att = image.analyze_attribution(mean_mut_matrix, number_of_genes_returned, "Mutation")
+        #gain_att = image.analyze_attribution(mean_gain_matrix, number_of_genes_returned, "Gain")
+        #loss_att = image.analyze_attribution(mean_loss_matrix, number_of_genes_returned, "Loss")
+        meth_att = image.analyze_attribution(mean_meth_matrix, number_of_genes_returned, "Methylation")
 
-    total_df = pd.concat([exp_att,mut_att,gain_att,loss_att, meth_att])
-    total_df.to_csv("/home/mateo/pytorch_docker/TCGA_GenomeImage/Results/V3/{}/Square/{}_{}_{}_top_{}.csv".format(folder_for_res,type, image_type, folder_for_res, number_of_genes_returned))
+        #total_df = pd.concat([exp_att,mut_att,gain_att,loss_att, meth_att])
+        total_df = pd.concat([exp_att, mut_att, meth_att])
+        total_df.to_csv("/home/mateo/pytorch_docker/TCGA_GenomeImage/Results/V3/{}/Square/{}_{}_{}_top_{}.csv".format(folder_for_res,type, image_type, folder_for_res, number_of_genes_returned))
 

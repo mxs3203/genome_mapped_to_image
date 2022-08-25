@@ -19,7 +19,7 @@ from train_util import return_model_and_cost_func
 
 #os.environ["WANDB_MODE"]="offline"
 
-sys.argv.append("config/cancer_type_square")
+sys.argv.append("config/metastatic_square")
 if len(sys.argv) == 1:
     print("You have to provide a path to a config file")
     quit(1)
@@ -82,7 +82,7 @@ last_loss = 0
 patience = config['early_stop_patience']
 
 def acc(y_hat, y):
-    probs = torch.softmax(y_hat, dim=1)
+    probs = torch.log_softmax(y_hat, dim=1)
     winners = probs.argmax(dim=1)
     corrects = (winners == y)
     accuracy = corrects.sum().float() / float(y.size(0))
@@ -92,9 +92,7 @@ def batch_train(x, y):
     net.train()
     cost_func.zero_grad()
     cost_func_reconstruct.zero_grad()
-    y_hat, reconstructed_img = net(x)
-
-    y_probs = net.predict(x)
+    y_hat,recon,L = net(x)
     loss = cost_func(y_hat, y)
     accuracy, pred_classes = acc(y_hat, y)
     auc = 0
@@ -106,7 +104,10 @@ def batch_train(x, y):
         y_pred=pred_classes.cpu().detach().numpy(),
         output_dict=True,
         zero_division=0)
-    total_loss = (loss)
+    mu = torch.mean(L)
+    logvar = torch.var(L)
+    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    total_loss = loss + (cost_func_reconstruct(x, recon)) + KLD
     total_loss.backward()
     optimizer.step()
     return total_loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score'], auc
@@ -114,8 +115,7 @@ def batch_train(x, y):
 def batch_valid(x, y):
     with torch.no_grad():
         net.eval()
-        y_hat, reconstructed_img = net(x)
-        y_probs = net.predict(x)
+        y_hat,recon,L = net(x)
         loss = cost_func(y_hat, y)
 
         accuracy, pred_classes = acc(y_hat, y)
@@ -128,8 +128,10 @@ def batch_valid(x, y):
             y_pred=pred_classes.cpu().detach().numpy(),
             output_dict=True,
             zero_division=0)
-
-        total_loss = loss
+        mu = torch.mean(L)
+        logvar = torch.var(L)
+        KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        total_loss = loss + (cost_func_reconstruct(x, recon)) + KLD
         return total_loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score'], auc
 
 def saveModel(ep, optimizer, loss):
@@ -146,7 +148,7 @@ val_losses = []
 for ep in range(epochs):
     batch_train_f1,batch_val_auc, batch_train_auc,\
     batch_train_loss, batch_val_f1, batch_val_loss = [],[],[],[],[],[]
-    for x, y_dat,id,type in trainLoader:
+    for x, y_dat,id, type in trainLoader:
         loss, acc_train, precision,recall,f1,train_auc = batch_train(x.cuda(), y_dat.cuda())
         batch_train_loss.append(loss)
         batch_train_f1.append(f1)
@@ -180,7 +182,7 @@ for ep in range(epochs):
                    "Test/loss": np.mean(batch_val_loss),
                    "Test/F1": np.mean(batch_val_f1)})
 
-    if (np.mean(batch_train_f1) >= config['save_model_score'] and np.mean(batch_val_f1) >= config['save_model_score']):
+    if (np.mean(batch_train_auc) >= config['save_model_score'] and np.mean(batch_val_auc) >= config['save_model_score']):
         saveModel(ep, optimizer, np.mean(batch_val_loss))
     if np.mean(batch_val_loss) > last_loss:
         trigger_times += 1

@@ -1,11 +1,11 @@
 {
-  "LR": 9.700000e-05,
+  "LR": 9.700e-5,
   "batch_size": 512,
   "lr_decay": 1e-6,
   "weight_decay": 1e-5,
   "epochs": 500,
   "start_of_lr_decrease": 60,
-  "folder": "TCGA_Square_Imgs/Metastatic_data",
+  "folder": "TCGA_Square_Imgs_the_harshest/Metastatic_data",
   "image_type": "SquareImg",
   "predictor_column": 0,
   "response_column": 1,

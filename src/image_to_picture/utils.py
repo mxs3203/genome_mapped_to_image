@@ -1,6 +1,7 @@
 import PIL
 import numpy as np
 import pandas as pd
+
 from src.image_to_picture.Image import Image
 from src.image_to_picture.ImageCell import ImageCell
 
@@ -14,11 +15,11 @@ def normalize_data(data, min, max):
     return (data - min) / (max - min)
 
 
-def make_image(id, met, all_genes, img_size=198):
+def make_image(id, met, all_genes, img_size=193):
     cnt = 0
     dict = {}
-    for i in range(img_size):
-        for j in range(img_size):
+    for i in range(img_size+1):
+        for j in range(img_size+1):
             if cnt < all_genes.shape[0]:
                 img = ImageCell(all_genes['name2'].iloc[cnt], loss_val=None, gain_val=None, mut_val=None, exp_val=None,
                                 methy_val=None, chr=all_genes['chr'].iloc[cnt])
@@ -34,7 +35,7 @@ def make_image(id, met, all_genes, img_size=198):
     return Image(id=id, met=met, dict_of_cells=dict)
 
 
-def make_image_chr(id, met, all_genes, chr_num=24, num_genes_chr1=3760):
+def make_image_chr(id, met, all_genes):
     cnt = 0
     dict = {}
     for i, row in all_genes.iterrows():

@@ -23,7 +23,7 @@ class Image:
         self.chr_exp_matrix = None
 
     def make_image_matrces(self):
-        img_size = 198
+        img_size = 194
         loss = np.zeros((img_size, img_size))
         gain = np.zeros((img_size, img_size))
         mut = np.zeros((img_size, img_size))
@@ -66,7 +66,7 @@ class Image:
 
     def make_image_matrces_by_chr(self):
 
-        n_chr = 24
+        n_chr = 22
         genes_on_chr1 = 3760
         loss = np.zeros((n_chr, genes_on_chr1))
         gain = np.zeros((n_chr, genes_on_chr1))

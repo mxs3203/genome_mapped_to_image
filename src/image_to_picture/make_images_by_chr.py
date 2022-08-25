@@ -22,7 +22,7 @@ print(args)
 
 start_time = time.time()
 print("Reading clinical...")
-clinical = pd.read_csv("../../data/raw_data/PFI_metadata.csv")
+clinical = pd.read_csv("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/corrected_metastatic_based_on_stages.csv")
 print("Reading ascat...")
 ascat = pd.read_csv("../../data/raw_data/ascat.csv")
 ascat_loss = ascat.loc[ascat['loss'] == True]

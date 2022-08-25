@@ -7,11 +7,11 @@ import time
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from src.image_to_picture.utils import make_image, find_losses, find_gains, find_mutations, find_gene_expression, \
+from utils import make_image, find_losses, find_gains, find_mutations, find_gene_expression, \
     find_methylation, makeImages
 
 parser = argparse.ArgumentParser(description='')
-parser.add_argument('--output',type=str, default='TCGA_Square_Imgs/Metastatic_data/SquareImg')
+parser.add_argument('--output',type=str, default='TCGA_Square_ImgsGainLoss_harsh/Metastatic_data/SquareImg')
 parser.add_argument('--tp53', type=int, default='0')
 parser.add_argument('--shuffle', type=int, default='0')
 
@@ -28,7 +28,7 @@ ascat = pd.read_csv("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/a
 ascat_loss = ascat.loc[ascat['loss'] == True]
 ascat_gain = ascat.loc[ascat['gain'] == True]
 print("Reading all gene definition...")
-all_genes = pd.read_csv("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/all_genes_ordered_by_chr.csv")
+all_genes = pd.read_csv("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/all_genes_ordered_by_chr_no_sex_chr.csv")
 
 if args.shuffle:
     print("Shuffling gene list")

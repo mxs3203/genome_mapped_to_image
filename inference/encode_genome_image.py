@@ -42,14 +42,14 @@ all_genes = pd.read_csv("../data/raw_data/all_genes_ordered_by_chr.csv")
 cancer_types = ['LUSC','LUAD', 'UCEC', 'THCA', 'COAD', 'SKCM', 'BLCA', 'KIRC', 'STAD', 'BRCA', 'OV', 'HNSC']
 # Read this from Metadata!!
 image_type = "SquareImg"
-folder = "TCGA_Square_Imgs/Metastatic_data"
+folder = "TCGA_Square_Imgs_the_harshest/Metastatic_data"
 predictor_column = 0
-response_column = 9
+response_column = 1
 
 # Model Params
-net = AE(output_size=12)
-LR = 9.700000e-5
-checkpoint = torch.load("../src/modeling/models/v3/56_SquareImg_TCGA_Square_Imgs_RandCancerType.pb")
+net = AE(output_size=2)
+LR = 9.700e-5
+checkpoint = torch.load("/home/mateo/pytorch_docker/TCGA_GenomeImage/src/modeling/models/v3/150_SquareImg_TCGA_SquareImg3D_Metastic_KL.pb")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=1e-6, lr=LR, weight_decay=1e-5)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -59,7 +59,7 @@ dataset = TCGAImageLoader("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_
                           folder, image_type, predictor_column, response_column)
 trainLoader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=False)
 
-arr = np.empty((0, 4608), float)
+arr = np.empty((0, 512), float)
 ids = []
 true_y = []
 pred_y = []
@@ -69,23 +69,23 @@ for x, y_dat, id,type in trainLoader:
     ids = np.concatenate((ids, id))
     arr = np.append(arr, encoded_genome.detach().numpy(), axis=0)
 
-    # y = net(x)
-    # probs = torch.softmax(y, dim=1)
-    # winners = probs.argmax(dim=1)
-    # true_y.append(y_dat.detach().numpy())
-    # pred_y.append(winners.detach().numpy())
+    y = net(x)
+    probs = torch.softmax(y, dim=1)
+    winners = probs.argmax(dim=1)
+    true_y.append(y_dat.detach().numpy())
+    pred_y.append(winners.detach().numpy())
 
 
-# df = DataFrame()
-# df['sampleid'] = ids
-# df['true_y'] = true_y
-# df['pred_y'] = pred_y
-# print(df)
-# df.to_csv("../Results/V3/CancerType/confusion_matrix.csv")
+df = DataFrame()
+df['sampleid'] = ids
+df['true_y'] = true_y
+df['pred_y'] = pred_y
+print(df)
+df.to_csv("../Results/V3/Metastatic/confusion_matrix.csv")
 
 
 df = DataFrame(arr)
 df['sampleid'] = ids
-df.to_csv("../Results/V3/RandCancerType/encoded_genomes.csv")
+df.to_csv("../Results/V3/Metastatic/encoded_genomes.csv")
 
 
