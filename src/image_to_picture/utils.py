@@ -15,7 +15,7 @@ def normalize_data(data, min, max):
     return (data - min) / (max - min)
 
 
-def make_image(id, met, all_genes, img_size=193):
+def make_image(id, met, all_genes, img_size=192):
     cnt = 0
     dict = {}
     for i in range(img_size+1):

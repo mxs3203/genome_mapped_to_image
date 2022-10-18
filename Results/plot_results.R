@@ -31,8 +31,9 @@ source("~/GenomeDK_local/CancerEvolution/phd/Analysis/cnsignatures/functions.R")
 vega = read.delim2("sanchez-vega-pws_1026.csv", sep = ";")
 range01 <- function(x){(x-min(x))/(max(x)-min(x))}
 
-cancer_types =c('LUSC','LUAD', 'UCEC', 'THCA', 'COAD', 'SKCM', 'BLCA', 'KIRC', 'STAD', 'BRCA', 'OV', 'HNSC')
-scenarios = c("Metastatic") #, "TP53", "wGII","Age","CancerType")
+#cancer_types =c('LUSC','LUAD', 'UCEC', 'THCA', 'COAD', 'SKCM', 'BLCA', 'KIRC', 'STAD', 'BRCA', 'OV', 'HNSC')
+cancer_types =c('UCEC', 'COAD', 'BLCA', 'KIRC', 'STAD', 'OV')
+scenarios = c("Metastatic", "TP53", "wGII","Age","CancerType")
 data_sources = c("Methylation","Expression","Gain","Loss","Mutation")
 top_n = 1000
 #saveRDS(all_results, "all_results_merged_ready_for_analysis.rds")
@@ -56,7 +57,7 @@ for (s in scenarios) {
   data_loss = data.frame()
   data_gain = data.frame()
   for ( type in cancer_types){
-    tmp_data = read.csv(paste0("V3/",s,"/Square/",type,"_SquareImg_",s,"_top_",num_res,".csv"))
+    tmp_data = read.csv(paste0("V1/",s,"/Squere/",type,"_SquereImg_",s,"_top_",num_res,".csv"))
     colnames(tmp_data)= c("rowname","attribution", "type","gene")
     tmp_data$c_type = type
     tmp_data$top_n = NA
@@ -129,7 +130,7 @@ summ_res = all_results %>%
   dplyr::group_by(type, c_type,output_variable) %>%
   dplyr::summarize(m = mean(attribution)) 
 
-ggplot(summ_res, aes(x =output_variable , y = m, fill = type)) + 
+ggplot(summ_res, aes(x =reorder(output_variable, -m), y = m, fill = type)) + 
   geom_col(position="dodge")+
   ylab("Attribution")+
   scale_fill_manual(values=wesanderson::wes_palette(n=5, name="Darjeeling2"))+
@@ -287,6 +288,12 @@ ggplot(reactome_res , aes(x = Description,
 ############## # Figure 2 Encoded genomes UMAP #########
 library(umap)
 
+pc = umap(encoded_genomes[, 2:513],  min_dist=1, spread = 2, n_neighbours = 5)
+res = as.data.frame(pc$layout)
+res$met = meta_data$metastatic_one_two_three
+ggplot(res, aes(x =V1, y = V2, color = met)) +
+  geom_point()
+
 color_for_plt = newCols[1:(length(unique(res$var)))]
 names(color_for_plt) = NULL
 metadata = read.csv("main_meta_data.csv")
@@ -426,7 +433,7 @@ pheatmap(heatmap_res_,
         cellheight = 10)
 
 # Figure 3 Panel B - Individual genes
-cosmic_genes = read.delim ("~/GenomeDK_local/CancerEvolution/phd/Analysis/COSMIC/COSMIC_cancerGeneCensus_20220307_14_48_24 2022.tsv")
+cosmic_genes = read.delim ("COSMIC_cancerGeneCensus_20220307_14_48_24 2022.tsv")
 cosmic_genes_oncogenes = cosmic_genes 
 known_genes = as.character(cosmic_genes$Gene.Symbol)
 
@@ -455,7 +462,7 @@ ggplot(genes, aes(x = reorder(gene,-scaled_attribtuion), y = scaled_attribtuion,
   scale_color_manual(values = c("BLCA"=newCols[6], "OV"=newCols[3], 
                                 "COAD"=newCols[5], "STAD"=newCols[2],
                                 "KIRC"=newCols[4], "UCEC"=newCols[1]))+
-  theme(axis.text.x = element_text(angle = 90,color = gene_name_color, hjust = 0.5, vjust = 0.5))
+  theme(axis.text.x = element_text(angle = 90, color = gene_name_color, hjust = 0.5, vjust = 0.5))
 
 
 # Figure 4: KM Curves and coxph
@@ -599,7 +606,7 @@ MY_COLORS_red_blue = c("#4292c6","#aaaaaa", "#cb181d" )
 
 
 unlist(all_results %>% 
-                 dplyr::filter(c_type == "COAD", output_variable == "Metastatic", (type == "Expression" | type == "Methylation")) %>%
+                 dplyr::filter(c_type == "BLCA", output_variable == "Metastatic", (type == "Expression" | type == "Methylation")) %>%
                  dplyr::arrange(desc(scaled_attribtuion)) %>% 
                  head(10) %>% 
                  dplyr::select(gene) )

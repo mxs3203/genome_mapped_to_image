@@ -2,16 +2,16 @@ import glob
 import pickle
 import random
 from collections import Counter
-
 from torch.utils.data import Dataset
 import pandas as pd
 import numpy as np
 import torch
+from scipy.ndimage import gaussian_filter
 from sklearn.preprocessing import OrdinalEncoder, MinMaxScaler
+from torchvision.transforms import transforms
 
 
-
-class TCGAImageLoader(Dataset):
+class TCGAImageLoaderContrastive(Dataset):
 
     def __init__(self, csv_file,  folder, image_type, predictor_column, response_column, filter_by_type=None, transform=None ):
 
@@ -33,8 +33,6 @@ class TCGAImageLoader(Dataset):
         self.predictor_column = predictor_column
         self.response_column = response_column
         self.remove_rows_where_there_is_no_file()
-        #self.annotation = self.annotation.dropna(subset=['tp53'])
-        #self.annotation.to_csv("/home/mateo/pytorch_docker/TCGA_GenomeImage/Results/V3/Metastatic/meta_data.csv")
 
     def compute_class_weight(self, dataset):
         y = []
@@ -58,6 +56,25 @@ class TCGAImageLoader(Dataset):
     def __len__(self):
         return len(self.annotation)
 
+    def add_noise_to_layer(self, x, layer, random_changes=50):
+        x_layer = x[layer, : , :]
+        mask = np.random.randint(0, random_changes, size=x_layer.shape).astype(np.bool)
+        r = np.random.rand(*x_layer.shape) * np.max(x_layer)
+        x_layer[mask] = r[mask]
+        x[layer, :, :] = x_layer
+        return x
+
+    def augment(self,x, prob=30, layers=5):
+        for i in range(layers):
+            if random.randrange(0, 100) < prob:
+                x = self.add_noise_to_layer(x, i)
+        if random.randrange(0, 100) < prob:
+            x = self.gauss_noise(x)
+        return x
+
+    def gauss_noise(self,x):
+        return gaussian_filter(x, sigma=random.uniform(0.1, 2))
+
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
@@ -66,7 +83,8 @@ class TCGAImageLoader(Dataset):
             x = pickle.load(f)
             f.close()
         y = np.array(self.annotation.iloc[idx, self.response_column], dtype="long")
-        if self.transform:
-            x = self.transform(x)
 
-        return x, y
+        x1 = self.augment(x)
+        x2 = self.augment(x)
+
+        return x1,x2,y

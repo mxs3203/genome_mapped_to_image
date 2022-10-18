@@ -1,23 +1,19 @@
 #!/usr/bin python3
-import os
-import pickle
+import json
 import sys
-
+import os
 import numpy as np
 import torch
-from sklearn.metrics import roc_auc_score
-from torch.utils.data import DataLoader, WeightedRandomSampler
-from torchvision.transforms import transforms
-from sklearn.metrics import classification_report
-
 # Training Params
 import wandb
-import json
+from sklearn.metrics import classification_report
+from sklearn.metrics import roc_auc_score
+from torch.utils.data import DataLoader
+from torchvision.transforms import transforms
 
-from Dataloader import TCGAImageLoader
-from train_util import return_model_and_cost_func
-
-#os.environ["WANDB_MODE"]="offline"
+# os.environ["WANDB_MODE"]="offline"
+from src.modeling.Dataloader import TCGAImageLoader
+from src.modeling.train_util import return_model_and_cost_func
 
 sys.argv.append("config/metastatic_square")
 if len(sys.argv) == 1:
@@ -42,7 +38,7 @@ image_type = config['image_type']# "SquereImg"
 predictor_column = config['predictor_column'] #
 response_column = config['response_column'] #11
 # Genome_As_Image_v2
-wandb.init(project="Genome_As_Image_v3", entity="mxs3203", name="{}_{}".format(config['run_name'],folder),reinit=True)
+wandb.init(project="Genome_As_Image_v4", entity="mxs3203", name="{}_{}".format(config['run_name'],folder),reinit=True)
 wandb.save(config_path)
 wandb.save("/home/mateo/pytorch_docker/TCGA_GenomeImage/src/AutoEncoder/AE_Square.py")
 
@@ -55,7 +51,7 @@ dataset = TCGAImageLoader(config['meta_data'],
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-train_size = int(len(dataset) * 0.75)
+train_size = int(len(dataset) * 0.6)
 test_size = len(dataset) - train_size
 print("Train size: ", train_size)
 print("Test size: ", test_size)
@@ -82,7 +78,7 @@ last_loss = 0
 patience = config['early_stop_patience']
 
 def acc(y_hat, y):
-    probs = torch.log_softmax(y_hat, dim=1)
+    probs = y_hat
     winners = probs.argmax(dim=1)
     corrects = (winners == y)
     accuracy = corrects.sum().float() / float(y.size(0))
@@ -90,10 +86,10 @@ def acc(y_hat, y):
 
 def batch_train(x, y):
     net.train()
-    cost_func.zero_grad()
-    cost_func_reconstruct.zero_grad()
     y_hat,recon,L = net(x)
     loss = cost_func(y_hat, y)
+    cost_func.zero_grad()
+    cost_func_reconstruct.zero_grad()
     accuracy, pred_classes = acc(y_hat, y)
     auc = 0
     if config['trainer'] != "multi-class":
@@ -107,7 +103,7 @@ def batch_train(x, y):
     mu = torch.mean(L)
     logvar = torch.var(L)
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    total_loss = loss + (cost_func_reconstruct(x, recon)) + KLD
+    total_loss = loss #+ cost_func_reconstruct(x, recon)# + KLD
     total_loss.backward()
     optimizer.step()
     return total_loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score'], auc
@@ -131,7 +127,7 @@ def batch_valid(x, y):
         mu = torch.mean(L)
         logvar = torch.var(L)
         KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-        total_loss = loss + (cost_func_reconstruct(x, recon)) + KLD
+        total_loss = loss# + cost_func_reconstruct(x, recon) + KLD
         return total_loss.item(), accuracy.item(), report['macro avg']['precision'],report['macro avg']['recall'],report['macro avg']['f1-score'], auc
 
 def saveModel(ep, optimizer, loss):
@@ -142,19 +138,22 @@ def saveModel(ep, optimizer, loss):
         'loss': loss
     }, "/home/mateo/pytorch_docker/TCGA_GenomeImage/src/modeling/checkpoints/{}_{}_{}.pb".format(ep, image_type, folder.replace("/","_")))
     wandb.save("/home/mateo/pytorch_docker/TCGA_GenomeImage/src/modeling/checkpoints/{}_{}_{}.pb".format(ep, image_type, folder.replace("/","_")))
+    # art = wandb.Artifact("the_best_model", type="model")
+    # art.add_file("/home/mateo/pytorch_docker/TCGA_GenomeImage/src/modeling/checkpoints/{}_{}_{}.pb".format(ep, image_type, folder.replace("/","_")))
+    # wandb.log_artifact(art)
 
 train_losses = []
 val_losses = []
 for ep in range(epochs):
     batch_train_f1,batch_val_auc, batch_train_auc,\
     batch_train_loss, batch_val_f1, batch_val_loss = [],[],[],[],[],[]
-    for x, y_dat,id, type in trainLoader:
+    for x, y_dat in trainLoader:
         loss, acc_train, precision,recall,f1,train_auc = batch_train(x.cuda(), y_dat.cuda())
         batch_train_loss.append(loss)
         batch_train_f1.append(f1)
         batch_train_auc.append(train_auc)
 
-    for x, y_dat,id,type in valLoader:
+    for x, y_dat in valLoader:
         loss, acc_val,  precision,recall,f1,val_auc = batch_valid(x.cuda(), y_dat.cuda())
         batch_val_loss.append(loss)
         batch_val_f1.append(f1)

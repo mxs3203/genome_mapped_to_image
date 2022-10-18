@@ -142,14 +142,14 @@ unique(df$treatment_outcome_first_course)
 
 a = df %>% select(clinical_stage, ajcc_pathologic_tumor_stage,stage,stage2, final_stage)
 df = df %>% filter(!is.na(final_stage))
-df$metastatic_one_two_three = ifelse(df$final_stage %in% c("Stage IV", "Stage III"), 1, 0)
-df %>% 
-  filter(!is.na(metastatic_one_two_three)) %>%
-  dplyr::group_by(type) %>% 
-  dplyr::summarise(n = n(), 
-                   n_met = sum(metastatic_one_two_three == 1),
-                   percent = n_met/n) %>%
-  arrange(desc(percent))
+df$metastatic_one_two_three = ifelse(df$final_stage %in% c("Stage IV"), 1, 0)
+
+
+ggplot(a, aes(x = type, y = percent)) + 
+  geom_col() + xlab("Cancer Types") + ylab("Percent Metastatic")+
+  geom_hline(yintercept = 0.53) +
+  theme_pubclean()
+
 table(df$metastatic_one_two_three)
 
 df3 = merge(df, All_TCGA_CIN_measures %>% select(sample_id, wGII), by.x = "bcr_patient_barcode", by.y="sample_id", all.x = T)
@@ -160,13 +160,13 @@ a = df3 %>%
   filter(!is.na(metastatic_one_two_three)) %>%
   dplyr::group_by(type) %>% 
   dplyr::summarise(n = n(), 
-                   n_1 = sum(final_stage == "Stage I")/n,
-                   n_2 = sum(final_stage == "Stage II")/n,
-                   n_3 = sum(final_stage == "Stage III")/n,
-                   n_4 = sum(final_stage == "Stage IV")/n,
+                   n_1 = sum(final_stage == "Stage I"),
+                   n_2 = sum(final_stage == "Stage II"),
+                   n_3 = sum(final_stage == "Stage III"),
+                   n_4 = sum(final_stage == "Stage IV"),
                    percent = sum(metastatic_one_two_three == 1)/n) %>%
   arrange(desc(percent)) %>%
-  filter(n > 400)
+  filter(n > 400, n_4 > 50)
 a
 table(df$metastatic_one_two_three)
 p1<- ggplot(a, aes(x = reorder(type, -percent), y  = percent)) +
@@ -189,10 +189,10 @@ allowed_c_types = df3 %>%
             n_1 = sum(final_stage == "Stage I")/n,
             n_2 = sum(final_stage == "Stage II")/n,
             n_3 = sum(final_stage == "Stage III")/n,
-            n_4 = sum(final_stage == "Stage IV")/n,
+            n_4 = sum(final_stage == "Stage IV"),
             n_met = sum(metastatic_one_two_three == 1),
             percent = n_met/n) %>% 
-  filter(n > 400) %>%
+  filter(n > 400, n_4 > 50) %>%
   #filter(between(n_1, 0.1, 0.5)) %>% # quantile(a$percent, c(0.1, 0.9))
   arrange( desc(n_met)) 
 allowed_c_types
@@ -214,31 +214,37 @@ df = read.delim("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/TCGA_
 df = merge(df, All_TCGA_CIN_measures %>% select(sample_id, wGII), by.x = "bcr_patient_barcode", by.y="sample_id", all.x = T)
 df = merge(df, muts %>% select(sampleID, tp53), by.x = "bcr_patient_barcode", by.y="sampleID", all.x = T)
 
-a = df %>% 
+df2 = df %>% filter(!is.na(PFI), PFI != "N/A")
+
+allowed_c_types = df2 %>% 
   filter(!is.na(PFI)) %>%
-  dplyr::group_by(type) %>% 
-  dplyr::summarise(n = n(), 
-                   n_met = sum(PFI == 1),
-                   percent = n_met/n) %>%
-  filter(n > 400) %>% 
-  arrange(desc(percent))
-a
-p1<- ggplot(a, aes(x = reorder(type, -percent), y  = percent)) +
+  group_by(type) %>% 
+  summarise(n = n(), 
+            n_pos = sum(PFI == 1),
+            n_neg = sum(PFI == 0),
+            percent = n_pos/n) 
+summary(allowed_c_types$n_pos)
+
+allowed_c_types = df2 %>% 
+  filter(!is.na(PFI)) %>%
+  group_by(type) %>% 
+  summarise(n = n(), 
+            n_pos = sum(PFI == 1),
+            n_neg = sum(PFI == 0),
+            percent = n_pos/n) %>% 
+  filter(n > 400, n_pos >= 124) %>%
+  #filter(between(n_1, 0.1, 0.5)) %>% # quantile(a$percent, c(0.1, 0.9))
+  arrange( desc(n_pos)) 
+allowed_c_types
+p1<- ggplot(allowed_c_types, aes(x = reorder(type, -percent), y  = percent)) +
   geom_col()
-p2<-ggplot(a, aes(x = reorder(type, -n), y  = n)) +
+p2<-ggplot(allowed_c_types, aes(x = reorder(type, -n), y  = n)) +
   geom_col()
 ggarrange(p1,p2)
 
-quantile(a$percent, c(0.1, 0.9))
-# take top 10 cancer types with at least 300 samples
-allowed_c_types = a %>% 
-  filter(between(percent, 0.229, 0.71)) %>% 
-  select(type) 
-df4 = df %>% filter(type %in% allowed_c_types$type) %>%
-  filter(PFI != "N/A") %>%
+df4 = df2 %>% filter(type %in% allowed_c_types$type) %>%
   select(bcr_patient_barcode, PFI, age_at_initial_pathologic_diagnosis, type, gender, wGII)
 table(df4$PFI)
-table(df4$tp53)
 colnames(df4)[1] = "id"
 colnames(df4)[3] = "age"
 
@@ -271,3 +277,34 @@ df4$met = as.integer(df4$met)
 write_csv(df4, "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/Met_based_on_desc_metadata.csv")
 
 
+# PFI
+df = read.delim("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/TCGA_survival_data_clean.txt")
+
+df2 = df %>% filter(!is.na(PFI), PFI != "N/A")
+allowed_c_types = df2 %>% 
+  filter(!is.na(PFI)) %>%
+  group_by(type) %>% 
+  summarise(n = n(), 
+            n_pos = sum(PFI == 1),
+            n_neg = sum(PFI == 0),
+            percent = n_pos/n) 
+summary(allowed_c_types$n_pos)
+
+allowed_c_types = df2 %>% 
+  filter(!is.na(PFI)) %>%
+  group_by(type) %>% 
+  summarise(n = n(), 
+            n_pos = sum(PFI == 1),
+            n_neg = sum(PFI == 0),
+            percent = n_pos/n) %>% 
+  filter(n > 400, n_pos >= 124) %>%
+  #filter(between(n_1, 0.1, 0.5)) %>% # quantile(a$percent, c(0.1, 0.9))
+  arrange( desc(n_pos)) 
+allowed_c_types
+df3 = df2 %>% filter(type %in% allowed_c_types$type)
+table(df3$PFI)
+table(df4$met)
+colnames(df4)[1] = "id"
+colnames(df4)[3] = "age"
+df4$met = as.integer(df4$met)
+write_csv(df4, "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/Met_based_on_desc_metadata.csv")

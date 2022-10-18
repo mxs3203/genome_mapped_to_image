@@ -7,8 +7,8 @@ import time
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from utils import make_image, find_losses, find_gains, find_mutations, find_gene_expression, \
-    find_methylation, makeImages
+from src.image_to_picture.utils import make_image, find_losses, find_gains, find_mutations, find_gene_expression, \
+    find_methylation
 
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('--output',type=str, default='TCGA_Square_ImgsGainLoss_harsh/Metastatic_data/SquareImg')
@@ -59,9 +59,9 @@ for index, row in clinical.iterrows():
     print("\tMaking image")
     image = make_image(id, met, all_genes)
     print("\tMapping losses to genes")
-    image = find_losses(id, image, all_genes, ascat_loss)
+    #image = find_losses(id, image, all_genes, ascat_loss)
     print("\tMapping gains to genes")
-    image = find_gains(id, image, all_genes, ascat_gain)
+    #image = find_gains(id, image, all_genes, ascat_gain)
     print("\tMapping mutations to genes")
     image = find_mutations(id, image, tmp_mut)
     print("\tMapping expression to genes")
@@ -71,20 +71,20 @@ for index, row in clinical.iterrows():
     print("\tMapping methylation to genes")
     image = find_methylation(id, image, methy)
     image.make_image_matrces()
-    five_dim_image = image.make_5_dim_image()
-    feature_vector = image.vector_of_all_features()
-    if np.all((feature_vector == 0)):
-        print("All zeros in 5d, not saving...")
-    else:
-        print("\tStoring n dim images in .dat file")
-        with open("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/{}/5_dim_images/{}.dat".format(folder, id),
-                  'wb') as f:
-            pickle.dump(five_dim_image, f)
-            f.close()
-        with open("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/{}/flatten_vectors_5d/{}.dat".format(folder, id),
-                  'wb') as f:
-            pickle.dump(feature_vector, f)
-            f.close()
+    # five_dim_image = image.make_5_dim_image()
+    # feature_vector = image.vector_of_all_features()
+    # if np.all((feature_vector == 0)):
+    #     print("All zeros in 5d, not saving...")
+    # else:
+    #     print("\tStoring n dim images in .dat file")
+    #     with open("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/{}/5_dim_images/{}.dat".format(folder, id),
+    #               'wb') as f:
+    #         pickle.dump(five_dim_image, f)
+    #         f.close()
+    #     with open("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/{}/flatten_vectors_5d/{}.dat".format(folder, id),
+    #               'wb') as f:
+    #         pickle.dump(feature_vector, f)
+    #         f.close()
 
     three_dim_image = image._3channel_square()
     three_dim_image_feature_vector = image._3channel_flat()

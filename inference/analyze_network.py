@@ -44,16 +44,16 @@ all_genes = pd.read_csv("../data/raw_data/all_genes_ordered_by_chr.csv")
 # Script Params
 # Read this from Metadata!!
 image_type = "SquareImg"
-folder = "TCGA_Square_Imgs_the_harshest/Metastatic_data"
+folder = "TCGA_Square_ImgsGainLoss_harsh/Metastatic_data"
 folder_for_res = "Metastatic"
 predictor_column = 0
 response_column = 1
-cancer_types = ['LUSC','LUAD', 'UCEC', 'THCA', 'COAD', 'SKCM', 'BLCA', 'KIRC', 'STAD', 'BRCA', 'OV', 'HNSC']
+cancer_types = ['BLCA','LUSC','LUAD', 'UCEC', 'THCA', 'COAD', 'SKCM', 'KIRC', 'STAD', 'BRCA', 'OV', 'HNSC']
 
 # Model Params
 net = AE(output_size=2)
 LR = 9.700e-5
-checkpoint = torch.load("/home/mateo/pytorch_docker/TCGA_GenomeImage/src/modeling/models/v3/150_SquareImg_TCGA_SquareImg3D_Metastic_KL.pb")
+checkpoint = torch.load("/home/mateo/pytorch_docker/TCGA_GenomeImage/src/modeling/models/13_SquareImg_TCGA_Square_ImgsGainLoss_harsh_Metastatic_data.pb")
 optimizer = torch.optim.Adagrad(net.parameters(), lr_decay=1e-6, lr=LR, weight_decay=1e-5)
 net.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -84,16 +84,17 @@ for type in cancer_types:
 
         # iterate sample by samples
         for x, y_dat , id, t in trainLoader:
-            print("ID: ", id)
-            #show_data(x, y_dat)
-            baseline = torch.zeros((1, x.shape[1], x.shape[2], x.shape[3]))
-            attribution = occlusion.attribute(x, baseline, target=int(y_dat))
-            attribution = attribution.squeeze().cpu().detach().numpy()
-            #heatmaps_gains.append(np.abs(attribution[0, :, :]))
-            #heatmaps_loss.append(np.abs(attribution[1, :, :]))
-            heatmaps_mut.append(np.abs(attribution[0, :, :]))
-            heatmaps_exp.append(np.abs(attribution[1, :, :]))
-            heatmaps_meth.append(np.abs(attribution[2, :, :]))
+            if y_dat == 1:
+                print("ID: ", id)
+                #show_data(x, y_dat)
+                baseline = torch.zeros((1, x.shape[1], x.shape[2], x.shape[3]))
+                attribution = occlusion.attribute(x, baseline, target=1, n_steps=500)
+                attribution = attribution.squeeze(0).cpu().detach().numpy()
+                #heatmaps_gains.append(np.abs(attribution[0, :, :]))
+                #heatmaps_loss.append(np.abs(attribution[1, :, :]))
+                heatmaps_mut.append(np.abs(attribution[0, :, :]))
+                heatmaps_exp.append(np.abs(attribution[1, :, :]))
+                heatmaps_meth.append(np.abs(attribution[2, :, :]))
 
         # make a mean value for every gene for loses, gains, etc...
         # heatmaps_loss = np.array(heatmaps_loss)
@@ -106,17 +107,17 @@ for type in cancer_types:
         #plt.show()
         heatmaps_mut = np.array(heatmaps_mut)
         mean_mut_matrix = heatmaps_mut.mean(axis=0)
-        #ax = sns.heatmap(mean_mut_matrix, cmap="YlGnBu")
-        #plt.show()
+        ax = sns.heatmap(mean_mut_matrix, cmap="YlGnBu")
+        plt.show()
 
         heatmaps_exp = np.array(heatmaps_exp)
         mean_exp_matrix = heatmaps_exp.mean(axis=0)
-        #ax = sns.heatmap(mean_exp_matrix, cmap="YlGnBu")
-        #plt.show()
+        ax = sns.heatmap(mean_exp_matrix, cmap="YlGnBu")
+        plt.show()
         heatmaps_meth = np.array(heatmaps_meth)
         mean_meth_matrix = heatmaps_meth.mean(axis=0)
-        #ax = sns.heatmap(mean_meth_matrix, cmap="YlGnBu")
-        #plt.show()
+        ax = sns.heatmap(mean_meth_matrix, cmap="YlGnBu")
+        plt.show()
 
         number_of_genes_returned = all_genes.shape[0]-1
 
