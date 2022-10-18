@@ -1,4 +1,4 @@
-# Genome mapped to Image (GMI) Project
+# Genome mapped to Image (GENIUS) Project
 ### Mapping entire genome information to the image and learning the features of the genome as image. 
 
 ### Step 1: Organize raw data in data/raw_data folder \
