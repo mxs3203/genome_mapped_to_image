@@ -10,7 +10,7 @@ import umap
 import wandb
 from sklearn.manifold import TSNE
 from torch.utils.data import DataLoader
-from torchvision.models import vgg11
+from torchvision.models import vgg11, resnet50, resnet18, vgg19
 from torchvision.transforms import transforms
 
 from src.modeling.ContrastiveLearning.ContrastiveLoss import SupConLoss
@@ -55,7 +55,7 @@ dataset = TCGAImageLoaderContrastive(config['meta_data'],
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-train_size = int(len(dataset) * 0.7)
+train_size = int(len(dataset) * 0.6)
 test_size = len(dataset) - train_size
 print("Train size: ", train_size)
 print("Test size: ", test_size)
@@ -64,8 +64,8 @@ train_set, val_set = torch.utils.data.random_split(dataset, [train_size, test_si
 trainLoader = DataLoader(train_set, batch_size=batch_size, num_workers=10, shuffle=True)
 valLoader = DataLoader(val_set, batch_size=batch_size, num_workers=10, shuffle=True)
 # resnet50= 224
-criterion = SupConLoss(temperature=0.08, base_temperature=0.02)
-extractor = vgg11(pretrained=False, num_classes=2048)
+criterion = SupConLoss(temperature=0.07, base_temperature=0.07)
+extractor = vgg19(pretrained=False, num_classes=5000)
 input_layer = torch.nn.Sequential(
     # (w-1)s - 2p + k-1 + 1
     torch.nn.ConvTranspose2d(in_channels=5, out_channels=3,padding=1, stride=1, kernel_size=33, bias=False),
@@ -132,10 +132,10 @@ for ep in range(epochs):
             features = torch.cat([f1.unsqueeze(1), f2.unsqueeze(1)], dim=1)
             loss = criterion(features, y_dat)
             val_loss_epoch += loss.item()
-    if val_loss_epoch/(len(valLoader)) < best_loss:
+    if val_loss_epoch/(len(valLoader)) < best_loss and ep > 5:
         path_backbone,backbone, path_input,input_l,optimizer_state = net.store_backbone(ep=ep, optimizer=optimizer,loss=val_loss_epoch/(len(valLoader)), image_type=image_type,folder=folder)
-        wandb.save(path_backbone)
-        wandb.save(path_input)
+        #wandb.save(path_backbone)
+        #wandb.save(path_input)
         best_back_bone = backbone
         best_input_layer = input_l
         best_loss = val_loss_epoch/(len(valLoader))

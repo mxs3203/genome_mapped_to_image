@@ -213,8 +213,10 @@ muts = muts %>% group_by(sampleID) %>%
 df = read.delim("/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/TCGA_survival_data_clean.txt")
 df = merge(df, All_TCGA_CIN_measures %>% select(sample_id, wGII), by.x = "bcr_patient_barcode", by.y="sample_id", all.x = T)
 df = merge(df, muts %>% select(sampleID, tp53), by.x = "bcr_patient_barcode", by.y="sampleID", all.x = T)
-
-df2 = df %>% filter(!is.na(PFI), PFI != "N/A")
+df$PFI.time = as.numeric(as.character(df$PFI.time))
+df2 = df %>% 
+  filter(!is.na(PFI), PFI != "N/A",
+         PFI.time < (365*3))
 
 allowed_c_types = df2 %>% 
   filter(!is.na(PFI)) %>%
@@ -232,7 +234,7 @@ allowed_c_types = df2 %>%
             n_pos = sum(PFI == 1),
             n_neg = sum(PFI == 0),
             percent = n_pos/n) %>% 
-  filter(n > 400, n_pos >= 124) %>%
+  filter(n > 300, n_pos >= 107) %>%
   #filter(between(n_1, 0.1, 0.5)) %>% # quantile(a$percent, c(0.1, 0.9))
   arrange( desc(n_pos)) 
 allowed_c_types
@@ -307,4 +309,4 @@ table(df4$met)
 colnames(df4)[1] = "id"
 colnames(df4)[3] = "age"
 df4$met = as.integer(df4$met)
-write_csv(df4, "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/Met_based_on_desc_metadata.csv")
+write_csv(df4, "/home/mateo/pytorch_docker/TCGA_GenomeImage/data/raw_data/PFI_metadata.csv")

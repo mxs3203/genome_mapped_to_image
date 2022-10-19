@@ -56,7 +56,7 @@ class TCGAImageLoaderContrastive(Dataset):
     def __len__(self):
         return len(self.annotation)
 
-    def add_noise_to_layer(self, x, layer, random_changes=50):
+    def add_noise_to_layer(self, x, layer, random_changes=2000):
         x_layer = x[layer, : , :]
         mask = np.random.randint(0, random_changes, size=x_layer.shape).astype(np.bool)
         r = np.random.rand(*x_layer.shape) * np.max(x_layer)
@@ -64,7 +64,7 @@ class TCGAImageLoaderContrastive(Dataset):
         x[layer, :, :] = x_layer
         return x
 
-    def augment(self,x, prob=30, layers=5):
+    def augment(self,x, prob=50, layers=5):
         for i in range(layers):
             if random.randrange(0, 100) < prob:
                 x = self.add_noise_to_layer(x, i)

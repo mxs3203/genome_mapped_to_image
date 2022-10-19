@@ -11,11 +11,11 @@ from sklearn.metrics import roc_auc_score
 from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 
-# os.environ["WANDB_MODE"]="offline"
+os.environ["WANDB_MODE"]="offline"
 from src.modeling.Dataloader import TCGAImageLoader
 from src.modeling.train_util import return_model_and_cost_func
 
-sys.argv.append("config/metastatic_square")
+sys.argv.append("/home/mateo/pytorch_docker/TCGA_GenomeImage/src/modeling/config/metastatic_square")
 if len(sys.argv) == 1:
     print("You have to provide a path to a config file")
     quit(1)
